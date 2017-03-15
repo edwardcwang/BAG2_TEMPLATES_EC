@@ -12,7 +12,7 @@ impl_lib = 'AAAFOO_serdes'
 
 def rxcore(prj, temp_db):
 
-    cell_name = 'rxcore'
+    cell_name = 'rxcore_ffe1_dfe4'
 
     layout_params = dict(
         lch=16e-9,
@@ -37,7 +37,7 @@ def rxcore(prj, temp_db):
                 {'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
                 {'casc': 4, 'in': 4, 'sw': 4, 'tail': 4},
                 {'casc': 4, 'in': 4, 'sw': 4, 'tail': 4},
-                {'casc': 8, 'in': 4, 'sw': 4, 'tail': 4},
+                {'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
             ],
             sgn_list=[1, -1, -1, -1, -1],
         ),
@@ -65,12 +65,12 @@ def rxcore_sch(prj):
         lch=16e-9,
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 6},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'lvt', 'sw': 'ulvt', 'tail': 'ulvt'},
-        integ_fg={'load': 8, 'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
-        alat_fg_list=[
+        integ_params={'load': 8, 'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
+        alat_params_list=[
             {'load': 12, 'casc': 12, 'in': 8, 'sw': 8, 'tail': 12},
             {'load': 10, 'casc': 10, 'in': 6, 'sw': 6, 'tail': 10},
         ],
-        dlat_fg_list=[
+        dlat_params_list=[
             {'load': 12, 'casc': 12, 'in': 8, 'sw': 8, 'tail': 12},
             {'load': 12, 'casc': 12, 'in': 8, 'sw': 8, 'tail': 12},
             {'load': 12, 'casc': 12, 'in': 8, 'sw': 8, 'tail': 12},
@@ -82,7 +82,7 @@ def rxcore_sch(prj):
                 {'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
                 {'casc': 4, 'in': 4, 'sw': 4, 'tail': 4},
                 {'casc': 4, 'in': 4, 'sw': 4, 'tail': 4},
-                {'casc': 8, 'in': 4, 'sw': 4, 'tail': 4},
+                {'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
             ],
             sgn_list=[1, -1, -1, -1, -1],
         ),
@@ -109,8 +109,8 @@ if __name__ == '__main__':
         bprj = bag.BagProject()
         temp = 70.0
         layers = [4, 5, 6]
-        spaces = [0.112, 0.100, 0.112]
-        widths = [0.080, 0.080, 0.080]
+        spaces = [0.112, 0.080, 0.112]
+        widths = [0.080, 0.100, 0.080]
         bot_dir = 'x'
 
         routing_grid = RoutingGrid(bprj.tech_info, layers, spaces, widths, bot_dir)
@@ -118,5 +118,6 @@ if __name__ == '__main__':
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
         rxcore(bprj, tdb)
+        # rxcore_sch(bprj)
     else:
         print('loading BAG project')
