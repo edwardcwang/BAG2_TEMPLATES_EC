@@ -18,6 +18,7 @@ def rxcore(prj, temp_db):
         lch=16e-9,
         ptap_w=6,
         ntap_w=6,
+        vm_width=2,
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 6},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'lvt', 'sw': 'ulvt', 'tail': 'ulvt'},
         integ_params={'load': 8, 'casc': 8, 'in': 4, 'sw': 4, 'tail': 8},
