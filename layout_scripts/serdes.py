@@ -19,8 +19,10 @@ def rxcore(prj, temp_db):
         ptap_w=6,
         ntap_w=6,
         hm_width=1,
-        vm_width=1,
-        xm_width=1,
+        hm_cur_width=2,
+        diff_space=1,
+        sig_widths=[1, 2],
+        sig_spaces=[3, 2],
         min_fg_sep=4,
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 6},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'lvt', 'sw': 'ulvt', 'tail': 'ulvt'},
@@ -113,8 +115,8 @@ if __name__ == '__main__':
         bprj = bag.BagProject()
         temp = 70.0
         layers = [4, 5, 6]
-        spaces = [0.084, 0.100, 0.112]
-        widths = [0.060, 0.080, 0.080]
+        spaces = [0.084, 0.080, 0.084]
+        widths = [0.060, 0.100, 0.060]
         bot_dir = 'x'
 
         routing_grid = RoutingGrid(bprj.tech_info, layers, spaces, widths, bot_dir)
