@@ -63,7 +63,7 @@ def rxcore(prj, temp_db):
     pprint.pprint(layout_params)
     template = temp_db.new_template(params=layout_params, temp_cls=RXCore, debug=False)
     print('total number of fingers: %d' % template.num_fingers)
-    temp_db.instantiate_layout(prj, template, cell_name, debug=True, flatten=False)
+    temp_db.instantiate_layout(prj, template, cell_name, debug=True)
 
 
 def rxcore_sch(prj):
