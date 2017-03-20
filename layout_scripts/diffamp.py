@@ -50,19 +50,20 @@ def diffamp(prj, temp_db, run_lvs=False, run_rcx=False):
         dsn.design_specs(fg_tot=fg_tot, **params)
         dsn.implement_design(impl_lib, top_cell_name=cell_name, erase=True)
         print('run lvs')
-        success = prj.run_lvs(lib_name, cell_name)
+        success, log_fname = prj.run_lvs(impl_lib, cell_name)
         if not success:
-            raise ValueError('lvs failed')
+            raise ValueError('lvs failed.  Check log file: %s' % log_fname)
         else:
             print('lvs passed')
 
     if run_rcx:
         print('run rcx')
-        success = prj.run_rcx(lib_name, cell_name)
+        success, log_fname = prj.run_rcx(impl_lib, cell_name)
         if not success:
-            raise ValueError('rcx failed')
+            raise ValueError('rcx failed.  Check log file: %s' % log_fname)
         else:
             print('rcx passed')
+
 
 if __name__ == '__main__':
 
