@@ -36,84 +36,42 @@ def solve_nmos_dc(db_list, w_list, fg_list, vg_list, vb_list, vbot, vtop, inorm=
     return result.x
 
 
-def cascode_char(db_list, w_list, fg_list, vdd, vcm, vstar_targ):
-    # find vtail to achieve target vstar
-    w_top_list = w_list[1:]
-    fg_top_list = fg_list[1:]
-    db_top_list = db_list[1:]
-    vg_list = [vcm, vdd]
-    vb_list = [0, 0]
-    vstar_in = db_list[1].get_scalar_function('vstar')
-    fg_tail, fg_in, fg_cas = fg_list
+def solve_casc_gm_dc(db_list, w_list, fg_list, vdd, vcm, vstar_targ, vgs_min=0.1,
+                     inorm=1e-6, itol=1e-9, vtol=1e-6):
+    # find vbias to achieve target vstar
+    vg_gm_list = [vcm, vdd]
+    vb_gm_list = [0, 0]
+    vstar_in = db_list[0].get_scalar_function('vstar')
+    varr = np.zeros(1)
+    win = w_list[0]
 
     def fun1(vin1):
-        vds1 = solve_nmos_dc(db_top_list, w_top_list, fg_top_list, vg_list, vb_list, vin1, vcm)[0]
-        return vstar_in(np.array([w_top_list[0], 0 - vin1, vds1, vcm - vin1])) - vstar_targ
+        varr[:] = solve_nmos_dc(db_list, w_list, fg_list, vg_gm_list, vb_gm_list, vin1, vcm,
+                                inorm=inorm, itol=itol)
+        return vstar_in(np.array([win, 0 - vin1, varr[0], vcm - vin1])) - vstar_targ
 
-    vtail = scipy.optimize.brentq(fun1, 0, vcm - 0.1)  # type: float
-    vds = solve_nmos_dc(db_top_list, w_top_list, fg_top_list, vg_list, vb_list, vtail, vcm)[0]
-    vmid = vtail + vds
-    in_par = db_list[1].query(w=w_list[1], vbs=-vtail, vds=vds, vgs=vcm - vtail)
-    cas_par = db_list[2].query(w=w_list[2], vbs=-vmid, vds=vcm - vmid, vgs=vdd - vmid)
-    ibias = in_par['ids'] * fg_in
+    vtail = scipy.optimize.brentq(fun1, 0, vcm - vgs_min, xtol=vtol)  # type: float
+    arg_in = np.array([win, 0 - vtail, varr[0], vcm - vtail])
+    vtest = vstar_in(arg_in) - vstar_targ
+    if abs(vtest) > vtol:
+        raise ValueError('vstar is not correct.')
+    vmid = vtail + varr[0]
+    ids_in = db_list[0].get_scalar_function('ids')
+    ibias = ids_in(arg_in) * fg_list[0]
 
-    # find vbias to achieve vtail
-    ids_tail = db_list[0].get_scalar_function('ids')
-
-    def fun2(vin2):
-        return (fg_tail * ids_tail(np.array([w_list[0], 0, vtail, vin2])) - ibias) / 1e-6
-
-    vbias = scipy.optimize.brentq(fun2, 0, vdd)
-    tail_par = db_list[0].query(w=w_list[0], vbs=0, vds=vtail, vgs=vbias)
-
-    # compute small signal parameters
-    gm_in = in_par['gm'] * fg_in
-    ro_in = 1 / (in_par['gds'] * fg_in)
-    cdd_in = in_par['cdd'] * fg_in
-    css_in = in_par['css'] * fg_in
-    gm_cas = cas_par['gm'] * fg_cas
-    ro_cas = 1 / (cas_par['gds'] * fg_cas)
-    cdd_cas = cas_par['cdd'] * fg_cas
-    css_cas = cas_par['css'] * fg_cas
-    ro_tail = 1 / (tail_par['gds'] * fg_tail)
-    cdd_tail = tail_par['cdd'] * fg_tail
-
-    return dict(
-        ibias=ibias,
-        gm=gm_in,
-        ro_gm=ro_in + ro_cas + gm_cas * ro_in * ro_cas,
-        ro_tail=ro_tail,
-        cdd_gm=cdd_cas,
-        tau_tail=(cdd_tail + css_in) * ro_tail / (1 + gm_in * ro_tail),
-        tau_casc=(cdd_in + css_cas) * ro_in / (1 + gm_cas * ro_in),
-        vbias=vbias,
-        vmid=vmid,
-        vtail=vtail,
-    )
+    return ibias, vtail, vmid
 
 
-def load_char(pdb, pw, pfg, gm_params, vdd, vcm):
-    # find vbias to achieve vtail
-    ids = pdb.get_scalar_function('ids')
-    ibias = gm_params['ibias']
+def solve_load_bias(pdb, w_load, fg_load, vdd, vcm, ibias, vtol=1e-6):
+    # find load bias voltage
+    ids_load = pdb.get_scalar_function('ids')
 
     def fun2(vin2):
-        return (-pfg * ids(np.array([pw, 0, vcm - vdd, vin2 - vdd])) - ibias) / 1e-6
+        return (-fg_load * ids_load(np.array([w_load, 0, vcm - vdd, vin2 - vdd])) - ibias) / 1e-6
 
-    vgp = scipy.optimize.brentq(fun2, 0, vdd)  # type: float
-    load_par = pdb.query(w=pw, vbs=0, vds=vcm - vdd, vgs=vgp - vdd)
+    vload = scipy.optimize.brentq(fun2, 0, vdd, xtol=vtol)  # type: float
 
-    amp_params = gm_params.copy()
-
-    amp_params['vload'] = vgp
-    amp_params['cdd_load'] = load_par['cdd'] * pfg
-    amp_params['cdd_tot'] = amp_params['cdd_load'] + amp_params['cdd_gm']
-    amp_params['ro_load'] = 1 / (pfg * load_par['gds'])
-    amp_params['ro_tot'] = 1 / (1 / amp_params['ro_load'] + 1 / amp_params['ro_gm'])
-    amp_params['gain'] = amp_params['ro_tot'] * amp_params['gm']
-    amp_params['tau_out'] = amp_params['ro_tot'] * amp_params['cdd_tot']
-
-    return amp_params
+    return vload
 
 
 def test():
@@ -121,15 +79,37 @@ def test():
     vdd = 0.8
     vcm = 0.65
     vstar_targ = 0.3
-    w_list = [6, 4, 6]
-    fg_list = [4, 4, 4]
+    cw = 5e-15
+    rw = 200
+    fanout = 2
+
+    w_list = [4, 4, 4, 4]
+    fg_in = 8
+    # fg_casc_swp = [4]
+    # fg_load_swp = [4]
+    fg_casc_swp = list(range(4, 17, 2))
+    fg_load_swp = list(range(4, 17, 2))
+
     ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], ['tt'], intent='ulvt', l=16e-9, method='spline')
-    db_list = [ndb] * 3
-
-    gm_params = cascode_char(db_list, w_list, fg_list, vdd, vcm, vstar_targ)
-
     pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], ['tt'], intent='ulvt', l=16e-9, method='spline')
-    pw = 4
-    pfg = 4
-    amp_params = load_char(pdb, pw, pfg, gm_params, vdd, vcm)
-    return amp_params
+    db_gm_list = [ndb, ndb]
+    w_gm_list = w_list[1:3]
+    w_load = w_list[3]
+
+    db_char_list = [ndb, ndb, pdb]
+    w_char_list = w_list[1:]
+
+    for fg_casc in fg_casc_swp:
+        fg_gm_list = [fg_in, fg_casc]
+        try:
+            ibias, vtail, vmid = solve_casc_gm_dc(db_gm_list, w_gm_list, fg_gm_list, vdd, vcm, vstar_targ)
+        except ValueError:
+            continue
+        for fg_load in fg_load_swp:
+            try:
+                vload = solve_load_bias(pdb, w_load, fg_load, vdd, vcm, ibias)
+            except ValueError:
+                continue
+
+            fg_char_list = [fg_in, fg_casc, fg_load]
+
