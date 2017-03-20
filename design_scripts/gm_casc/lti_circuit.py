@@ -1,20 +1,25 @@
 # -*- coding: utf-8 -*-
 
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import scipy.signal
 
 
 class LTICircuitBuilder(object):
-    def __init__(self, n):
-        # type: (int) -> None
-        self._n = n
-        self._gmat = np.zeros((n, n))
-        self._cmat = np.zeros((n, n))
+    def __init__(self, node_list):
+        # type: (List[str]) -> None
+        self._n = len(node_list)
+        self._gmat = np.zeros((self._n, self._n))
+        self._cmat = np.zeros((self._n, self._n))
+        self._node_id = {val: idx for idx, val in enumerate(node_list)}
+        self._node_id['gnd'] = -1
 
-    def add_res(self, res, node_p, node_n):
-        # type: (float, int, int) -> None
+    def add_res(self, res, p_name, n_name):
+        # type: (float, str, str) -> None
+        node_p = self._node_id[p_name]
+        node_n = self._node_id[n_name]
+
         if node_p == node_n:
             return
         if node_p < node_n:
@@ -26,8 +31,13 @@ class LTICircuitBuilder(object):
             self._gmat[node_n, node_n] += g
             self._gmat[node_n, node_p] -= g
 
-    def add_gm(self, gm, node_p, node_n, node_cp, node_cn=-1):
-        # type: (float, int, int, int, int) -> None
+    def add_gm(self, gm, p_name, n_name, cp_name, cn_name='gnd'):
+        # type: (float, str, str, str, str) -> None
+        node_p = self._node_id[p_name]
+        node_n = self._node_id[n_name]
+        node_cp = self._node_id[cp_name]
+        node_cn = self._node_id[cn_name]
+
         if node_p == node_n or node_cp == node_cn:
             return
 
@@ -42,8 +52,11 @@ class LTICircuitBuilder(object):
             if node_n >= 0:
                 self._gmat[node_n, node_cn] += gm
 
-    def add_cap(self, cap, node_p, node_n):
-        # type: (float, int, int) -> None
+    def add_cap(self, cap, p_name, n_name):
+        # type: (float, str, str) -> None
+        node_p = self._node_id[p_name]
+        node_n = self._node_id[n_name]
+
         if node_p == node_n:
             return
         if node_p < node_n:
@@ -55,8 +68,13 @@ class LTICircuitBuilder(object):
             self._cmat[node_n, node_n] += cap
             self._cmat[node_n, node_p] -= cap
 
-    def add_transistor(self, tran_info, fg, node_g, node_d, node_s, node_b=-1):
+    def add_transistor(self, tran_info, g_name, d_name, s_name, b_name='gnd', fg=1):
         # type: (Dict[str, float], int, int, int, int, int) -> None
+        node_g = self._node_id[g_name]
+        node_d = self._node_id[d_name]
+        node_s = self._node_id[s_name]
+        node_b = self._node_id[b_name]
+
         gm = tran_info['gm'] * fg
         ro = 1 / (tran_info['gds'] * fg)
         gb = tran_info['gb'] * fg
@@ -77,13 +95,13 @@ class LTICircuitBuilder(object):
         self.add_cap(cdb, node_d, node_b)
         self.add_cap(csb, node_s, node_b)
 
-    def get_gain_system(self, node_in, node_out):
-        # type: (int, int) -> scipy.signal.StateSpace
+    def get_gain_system(self, in_name, out_name):
+        # type: (str, str) -> scipy.signal.StateSpace
+        node_in = self._node_id[in_name]
+        node_out = self._node_id[out_name]
+
         new_gmat = np.delete(self._gmat, node_in, axis=0)
         new_cmat = np.delete(self._cmat, node_in, axis=0)
-
-        print(self._gmat)
-        print(self._cmat)
 
         col_core = [idx for idx in range(self._n) if idx != node_in]
         cmat_core = new_cmat[:, col_core]
@@ -112,15 +130,11 @@ class LTICircuitBuilder(object):
         bmat = np.dot(inv_mat, -gvec_in)
         cmat = np.zeros((1, self._n - 1))
         cmat[0, node_out] = 1
-        print(amat)
-        print(bmat)
-        print(cmat)
-        print(dmat)
         return scipy.signal.lti(amat, bmat, cmat, dmat)
 
 
 def test():
-    cgs1 = 1e-15
+    cgd1 = 1e-15
     gm1 = 1e-3
     ro1 = 10e3
     cm = 5e-15
@@ -132,19 +146,19 @@ def test():
     rw = 200
     cl = 5e-15
 
-    builder = LTICircuitBuilder(4)
-    builder.add_cap(cgs1, 0, 1)
-    builder.add_gm(gm1, 1, -1, 0)
-    builder.add_res(ro1, 1, -1)
-    builder.add_cap(cm, 1, -1)
-    builder.add_gm(gm2, 1, 2, 1)
-    builder.add_res(ro2, 1, 2)
-    builder.add_cap(cds2, 1, 2)
-    builder.add_res(ro3, 2, -1)
-    builder.add_cap(cd, 2, -1)
-    builder.add_res(rw, 2, 3)
-    builder.add_cap(cl, 3, -1)
-    sys = builder.get_gain_system(0, 3)
+    builder = LTICircuitBuilder(['in', 'mid', 'out1', 'out2'])
+    builder.add_cap(cgd1, 'in', 'mid')
+    builder.add_gm(gm1, 'mid', 'gnd', 'in')
+    builder.add_res(ro1, 'mid', 'gnd')
+    builder.add_cap(cm, 'mid', 'gnd')
+    builder.add_gm(gm2, 'mid', 'out1', 'mid')
+    builder.add_res(ro2, 'out1', 'mid')
+    builder.add_cap(cds2, 'out1', 'mid')
+    builder.add_res(ro3, 'out1', 'gnd')
+    builder.add_cap(cd, 'out1', 'gnd')
+    builder.add_res(rw, 'out1', 'out2')
+    builder.add_cap(cl, 'out2', 'gnd')
+    sys = builder.get_gain_system('in', 'out2')
 
     tvec = np.linspace(0, 1e-9, 1001)
     _, yvec = scipy.signal.step(sys, T=tvec)
