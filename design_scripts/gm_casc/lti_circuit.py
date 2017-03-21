@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import numpy as np
 import scipy.signal
+from scipy.signal.ltisys import StateSpaceContinuous, TransferFunctionContinuous
 
 
 class LTICircuitBuilder(object):
@@ -96,7 +97,7 @@ class LTICircuitBuilder(object):
         self.add_cap(csb, node_s, node_b)
 
     def get_voltage_gain_system(self, in_name, out_name):
-        # type: (str, str) -> scipy.signal.StateSpace
+        # type: (str, str) -> StateSpaceContinuous
         node_in = self._node_id[in_name]
         node_out = self._node_id[out_name]
         if node_in == node_out:
@@ -132,10 +133,10 @@ class LTICircuitBuilder(object):
         bmat = np.dot(inv_mat, -gvec_in)
         cmat = np.zeros((1, self._n - 1))
         cmat[0, node_out] = 1
-        return scipy.signal.lti(amat, bmat, cmat, dmat)
+        return StateSpaceContinuous(amat, bmat, cmat, dmat)
 
-    def get_impedance_gain_system(self, in_name, out_name, short_name=''):
-        # type: (str, str, str) -> scipy.signal.StateSpace
+    def get_impedance_gain_system(self, in_name, out_name, short_name='', atol=0.0):
+        # type: (str, str, str, bool, float) -> TransferFunctionContinuous
         node_in = self._node_id[in_name]
         node_out = self._node_id[out_name]
 
@@ -172,11 +173,20 @@ class LTICircuitBuilder(object):
         cmat = np.zeros((1, mat_rank))
         cmat[0, node_out] = 1
         dmat = np.zeros((1, 1))
-        return scipy.signal.lti(amat, bmat, cmat, dmat)
+
+        num, den = scipy.signal.ss2tf(amat, bmat, cmat, dmat)
+        num = num[0, :]
+        # check if numerator has leading zeros.
+        # this makes it so the user have full control over numerical precision, and
+        # avoid scipy bad conditioning warnings.
+        while abs(num[0]) <= atol:
+            num = num[1:]
+        return TransferFunctionContinuous(num, den)
 
 
 def test():
-    cgd1 = 1e-15
+    cgs1 = 2e-15
+    cgd1 = 0.5e-15
     gm1 = 1e-3
     ro1 = 10e3
     cm = 5e-15
@@ -190,6 +200,7 @@ def test():
 
     builder = LTICircuitBuilder(['in', 'mid', 'out1', 'out2'])
     builder.add_cap(cgd1, 'in', 'mid')
+    builder.add_cap(cgs1, 'in', 'gnd')
     builder.add_gm(gm1, 'mid', 'gnd', 'in')
     builder.add_res(ro1, 'mid', 'gnd')
     builder.add_cap(cm, 'mid', 'gnd')
@@ -200,14 +211,29 @@ def test():
     builder.add_cap(cd, 'out1', 'gnd')
     builder.add_res(rw, 'out1', 'out2')
     builder.add_cap(cl, 'out2', 'gnd')
-    sys = builder.get_voltage_gain_system('in', 'out2')
+    vsys = builder.get_voltage_gain_system('in', 'out2')
 
     tvec = np.linspace(0, 1e-9, 1001)
-    _, yvec = scipy.signal.step(sys, T=tvec)
+    _, yvec = scipy.signal.step(vsys, T=tvec)
+
+    isys = builder.get_impedance_gain_system('in', 'in')
+    w = 2 * np.pi * 1e9
+    _, zvec1 = isys.freqresp(w=[w])
+    _, zvec2 = isys.freqresp(w=[w / 10])
+
+    print(zvec1[0], -1 / w / zvec1[0].imag)
+    print(zvec2[0], -10 / w / zvec2[0].imag)
+
+    w, mag, phase = isys.bode(n=500)
 
     import matplotlib.pyplot as plt
     plt.figure(1)
     plt.plot(tvec, yvec)
+
+    plt.figure(2)
+    plt.semilogx(w / 2 / np.pi, mag)
+    plt.figure(3)
+    plt.semilogx(w / 2 / np.pi, phase)
     plt.show()
 
-    return sys
+    return isys
