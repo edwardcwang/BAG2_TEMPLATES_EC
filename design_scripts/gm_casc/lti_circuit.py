@@ -95,41 +95,83 @@ class LTICircuitBuilder(object):
         self.add_cap(cdb, node_d, node_b)
         self.add_cap(csb, node_s, node_b)
 
-    def get_gain_system(self, in_name, out_name):
+    def get_voltage_gain_system(self, in_name, out_name):
         # type: (str, str) -> scipy.signal.StateSpace
         node_in = self._node_id[in_name]
         node_out = self._node_id[out_name]
+        if node_in == node_out:
+            raise ValueError('Input and output nodes are the same.')
 
+        # remove KCL constraint from input node
         new_gmat = np.delete(self._gmat, node_in, axis=0)
         new_cmat = np.delete(self._cmat, node_in, axis=0)
 
+        # separate input voltage from state space
         col_core = [idx for idx in range(self._n) if idx != node_in]
         cmat_core = new_cmat[:, col_core]
+        gmat_core = new_gmat[:, col_core]
+
         mat_rank = np.linalg.matrix_rank(cmat_core)
         if mat_rank != cmat_core.shape[0]:
             raise ValueError('cap matrix is singular.')
-        cvec_in = new_cmat[:, node_in:node_in + 1]
 
         inv_mat = np.linalg.inv(cmat_core)
-        gmat_core = new_gmat[:, col_core]
+        cvec_in = new_cmat[:, node_in:node_in + 1]
         gvec_in = new_gmat[:, node_in:node_in + 1]
 
         if node_out > node_in:
             node_out -= 1
 
-        if np.count_nonzero(cvec_in) > 0:
-            # modify state space representation so we don't have input derivative term
-            weight_vec = np.dot(inv_mat, cvec_in)
-            print(weight_vec)
-            gvec_in -= np.dot(gmat_core, weight_vec)
-            dmat = np.ones((1, 1)) * -weight_vec[node_out, 0]
-        else:
-            dmat = np.zeros((1, 1))
+        # modify state variables so we don't have input derivative term
+        weight_vec = np.dot(inv_mat, cvec_in)
+        gvec_in -= np.dot(gmat_core, weight_vec)
+        dmat = np.ones((1, 1)) * -weight_vec[node_out, 0]
 
+        # construct state space model.
         amat = np.dot(inv_mat, -gmat_core)
         bmat = np.dot(inv_mat, -gvec_in)
         cmat = np.zeros((1, self._n - 1))
         cmat[0, node_out] = 1
+        return scipy.signal.lti(amat, bmat, cmat, dmat)
+
+    def get_impedance_gain_system(self, in_name, out_name, short_name=''):
+        # type: (str, str, str) -> scipy.signal.StateSpace
+        node_in = self._node_id[in_name]
+        node_out = self._node_id[out_name]
+
+        if short_name:
+            node_short = self._node_id[short_name]
+            if node_in == node_short or node_out == node_short:
+                raise ValueError('Shorting input/output.')
+
+            # remove node that's shorted to ground
+            new_gmat = np.delete(self._gmat, node_short, axis=0)
+            new_cmat = np.delete(self._cmat, node_short, axis=0)
+            col_list = [idx for idx in range(self._n) if idx != node_short]
+            new_gmat = new_gmat[:, col_list]
+            new_cmat = new_cmat[:, col_list]
+            if node_in > node_short:
+                node_in -= 1
+            if node_out > node_short:
+                node_out -= 1
+        else:
+            new_gmat = self._gmat.copy()
+            new_cmat = self._cmat.copy()
+
+        mat_rank = np.linalg.matrix_rank(new_cmat)
+        if mat_rank != new_cmat.shape[0]:
+            raise ValueError('cap matrix is singular.')
+
+        inv_mat = np.linalg.inv(new_cmat)
+        bmat = np.zeros((mat_rank, 1))
+        bmat[node_in, 0] = -1
+
+        # construct state space model
+        amat = np.dot(inv_mat, -new_gmat)
+        bmat = np.dot(inv_mat, -bmat)
+        cmat = np.zeros((1, mat_rank))
+        cmat[0, node_out] = 1
+        dmat = np.zeros((1, 1))
         return scipy.signal.lti(amat, bmat, cmat, dmat)
 
 
@@ -158,7 +200,7 @@ def test():
     builder.add_cap(cd, 'out1', 'gnd')
     builder.add_res(rw, 'out1', 'out2')
     builder.add_cap(cl, 'out2', 'gnd')
-    sys = builder.get_gain_system('in', 'out2')
+    sys = builder.get_voltage_gain_system('in', 'out2')
 
     tvec = np.linspace(0, 1e-9, 1001)
     _, yvec = scipy.signal.step(sys, T=tvec)
