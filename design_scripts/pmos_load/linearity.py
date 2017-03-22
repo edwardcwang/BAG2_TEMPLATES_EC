@@ -2,16 +2,17 @@
 
 
 from typing import Tuple
+from itertools import product
 
 import numpy as np
 import scipy.optimize
 
 from bag.tech.mos import MosCharDB
+from bag.math.dfun import DiffFunction
 
 
-def get_iv_fun(env, pdb, w, ibias, vdd, vcm, vstar_targ, num_points=200, vtol=1e-6):
-    # type: (str, MosCharDB, float, float, float, float, float, int, float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-    ids_load = pdb.get_scalar_function('ids', env=env)
+def find_vgs(ids_load, w, ibias, vdd, vcm, vtol=1e-6):
+    # type: (DiffFunction, float, float, float, float, float) -> float
 
     # find nominal pmos gate bias
     def f1(vin1):
@@ -20,7 +21,11 @@ def get_iv_fun(env, pdb, w, ibias, vdd, vcm, vstar_targ, num_points=200, vtol=1e
     vbias = scipy.optimize.brentq(f1, 0, vdd, xtol=vtol)  # type: float
 
     # find maximum output voltage
-    vgs = vbias - vdd
+    return vbias - vdd
+
+
+def get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=400, vtol=1e-6):
+    # type: (DiffFunction, float, float, float, float, float, int, float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
 
     def f2(vin2):
         imin = -ids_load(np.array([w, 0, vin2 - vdd, vgs]))
@@ -50,16 +55,28 @@ def get_iv_fun(env, pdb, w, ibias, vdd, vcm, vstar_targ, num_points=200, vtol=1e
     return vod, voc, iin_resample
 
 
-def test(w=4, ibias=50e-6, vstar_targ=0.3, vdd=0.9, vcm=0.75, env='tt'):
+def test(vstar_targ=0.3, vdd=0.9, env='tt'):
+    lch = 16e-9
+    w = 4
+    intent_range = ['ulvt', 'svt']
+    ibias_range = np.arange(20, 61, 5) * 1e-6
+    vcm_range = [0.65, 0.7, 0.75]
+    num_points = 200
     root_dir = 'tsmc16_FFC/mos_data'
 
-    pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], [env], intent='ulvt', l=16e-9, method='spline')
+    videal = np.linspace(-vstar_targ, vstar_targ, num_points, endpoint=True)  # type: np.ndarray
 
-    vod, voc, iin = get_iv_fun(env, pdb, w, ibias, vdd, vcm, vstar_targ, num_points=200, vtol=1e-6)
+    for intent in intent_range:
+        pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], [env], intent=intent, l=lch, method='spline')
+        ids_load = pdb.get_scalar_function('ids', env=env)
 
-    import matplotlib.pyplot as plt
-    plt.figure(1)
-    plt.plot(iin / 1e-6, vod, '-bo')
-    plt.figure(2)
-    plt.plot(iin / 1e-6, voc, '-ro')
-    plt.show()
+        for ibias, vcm in product(ibias_range, vcm_range):
+            try:
+                vgs = find_vgs(ids_load, w, ibias, vdd, vcm)
+            except ValueError:
+                print('failed to find vgs for ibias = %.4g uA' % (ibias * 1e6))
+                continue
+            vg = vdd + vgs
+            vod, voc, iin = get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=num_points)
+            verr = np.max(np.abs(vod - videal))
+            print('ibias = %.4g uA, vcm = %.4g, vg = %.4g, verr = %.4g mV' % (ibias * 1e6, vcm, vg, verr * 1e3))
