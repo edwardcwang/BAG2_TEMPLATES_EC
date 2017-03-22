@@ -11,9 +11,19 @@ from bag.tech.mos import MosCharDB
 from bag.data.lti import LTICircuit
 
 
-def solve_nmos_dc(db_list, w_list, fg_list, vg_list, vb_list, vbot, vtop, inorm=1e-6, itol=1e-9):
-    # type: (List[MosCharDB], List[Union[float, int]], List[int], List[float], List[float], float, float) -> np.ndarray
-    ifun_list = [db.get_scalar_function('ids') for db in db_list]
+def solve_nmos_dc(env,  # type: str
+                  db_list,  # type: List[MosCharDB]
+                  w_list,  # type: List[Union[float, int]]
+                  fg_list,  # type: List[int]
+                  vg_list,  # type: List[float]
+                  vb_list,  # type: List[float]
+                  vbot,  # type: float
+                  vtop,  # type: float
+                  inorm=1e-6,  # type: float
+                  itol=1e-9  # type: float
+                  ):
+    # type: (...) -> np.ndarray
+    ifun_list = [db.get_scalar_function('ids', env=env) for db in db_list]
     info_list = list(zip(ifun_list, w_list, fg_list, vg_list, vb_list))
     num_mos = len(w_list)
     vstack = np.zeros(num_mos + 1)
@@ -39,17 +49,28 @@ def solve_nmos_dc(db_list, w_list, fg_list, vg_list, vb_list, vbot, vtop, inorm=
     return result.x
 
 
-def solve_casc_gm_dc(db_list, w_list, fg_list, vdd, vcm, vstar_targ, vgs_min=0.1,
-                     inorm=1e-6, itol=1e-9, vtol=1e-6):
+def solve_casc_gm_dc(env,  # type: str
+                     db_list,  # type: List[MosCharDB]
+                     w_list,  # type: List[Union[float, int]]
+                     fg_list,  # type: List[int]
+                     vdd,  # type: float
+                     vcm,  # type: float
+                     vstar_targ,  # type: float
+                     vgs_min=0.1,  # type: float
+                     inorm=1e-6,  # type: float
+                     itol=1e-9,  # type: float
+                     vtol=1e-6  # type: float
+                     ):
+    # type: (...) -> Tuple[float, float, float]
     # find vbias to achieve target vstar
     vg_gm_list = [vcm, vdd]
     vb_gm_list = [0, 0]
-    vstar_in = db_list[0].get_scalar_function('vstar')
+    vstar_in = db_list[0].get_scalar_function('vstar', env=env)
     varr = np.zeros(1)
     win = w_list[0]
 
     def fun1(vin1):
-        varr[:] = solve_nmos_dc(db_list, w_list, fg_list, vg_gm_list, vb_gm_list, vin1, vcm,
+        varr[:] = solve_nmos_dc(env, db_list, w_list, fg_list, vg_gm_list, vb_gm_list, vin1, vcm,
                                 inorm=inorm, itol=itol)
         return vstar_in(np.array([win, 0 - vin1, varr[0], vcm - vin1])) - vstar_targ
 
@@ -59,15 +80,16 @@ def solve_casc_gm_dc(db_list, w_list, fg_list, vdd, vcm, vstar_targ, vgs_min=0.1
     if abs(vtest) > vtol:
         raise ValueError('vstar is not correct.')
     vmid = vtail + varr[0]
-    ids_in = db_list[0].get_scalar_function('ids')
+    ids_in = db_list[0].get_scalar_function('ids', env=env)
     ibias = ids_in(arg_in) * fg_list[0]
 
     return ibias, vtail, vmid
 
 
-def solve_load_bias(pdb, w_load, fg_load, vdd, vcm, ibias, vtol=1e-6):
+def solve_load_bias(env, pdb, w_load, fg_load, vdd, vcm, ibias, vtol=1e-6):
+    # type: (str, MosCharDB, float, int, float, float, float, float) -> float
     # find load bias voltage
-    ids_load = pdb.get_scalar_function('ids')
+    ids_load = pdb.get_scalar_function('ids', env=env)
 
     def fun2(vin2):
         return (-fg_load * ids_load(np.array([w_load, 0, vcm - vdd, vin2 - vdd])) - ibias) / 1e-6
@@ -77,6 +99,19 @@ def solve_load_bias(pdb, w_load, fg_load, vdd, vcm, ibias, vtol=1e-6):
     return vload
 
 
+def solve_tail_bias(env, ndb, w_tail, fg_tail, vdd, vtail, ibias, vtol=1e-6):
+    # type: (str, MosCharDB, float, int, float, float, float, float) -> float
+    # find load bias voltage
+    ids_tail = ndb.get_scalar_function('ids', env=env)
+
+    def fun2(vin2):
+        return (fg_tail * ids_tail(np.array([w_tail, 0, vtail, vin2])) - ibias) / 1e-6
+
+    vbias = scipy.optimize.brentq(fun2, 0, vdd, xtol=vtol)  # type: float
+
+    return vbias
+
+
 def char_cascode(db_list, w_list, fg_list, vdd, vcm, vload, vtail, vmid, rw, cw, fanout, ton, num_points=2000):
     # type: (List[MosCharDB], List[float], List[int], float, float, float, float, float) -> Dict[str, float]
     in_params = db_list[0].query(w=w_list[0], vbs=-vtail, vds=vmid - vtail, vgs=vcm - vtail)
@@ -84,9 +119,9 @@ def char_cascode(db_list, w_list, fg_list, vdd, vcm, vload, vtail, vmid, rw, cw,
     load_params = db_list[2].query(w=w_list[2], vbs=0, vds=vcm - vdd, vgs=vload - vdd)
 
     builder = LTICircuit(['in', 'mid', 'd', 'out'])
-    builder.add_transistor(in_params, 'in', 'mid', 'gnd', fg=fg_list[0])
-    builder.add_transistor(casc_params, 'gnd', 'd', 'mid', fg=fg_list[1])
-    builder.add_transistor(load_params, 'gnd', 'd', 'gnd', fg=fg_list[2])
+    builder.add_transistor(in_params, 'mid', 'in', 'gnd', fg=fg_list[0])
+    builder.add_transistor(casc_params, 'd', 'gnd', 'mid', fg=fg_list[1])
+    builder.add_transistor(load_params, 'd', 'gnd', 'gnd', fg=fg_list[2])
     builder.add_cap(cw / 2, 'd', 'gnd')
     builder.add_cap(cw / 2, 'out', 'gnd')
     builder.add_res(rw, 'd', 'out')
@@ -134,22 +169,61 @@ def char_cascode(db_list, w_list, fg_list, vdd, vcm, vload, vtail, vmid, rw, cw,
     )
 
 
-def test(vdd=0.8, vcm=0.65, env='tt'):
+def design_tail(env, ndb, char_dict, fg_swp, w_tail, vdd, tau_max):
+    ibias = char_dict['ibias']
+    vtail = char_dict['vtail']
+    gm_in = char_dict['gm_in']
+
+    ro_opt = 0
+    fg_opt = None
+    vbias_opt = None
+    ro_tail_opt = None
+    cdd_tail_opt = None
+    for fg_tail in fg_swp:
+        try:
+            vbias = solve_tail_bias(env, ndb, w_tail, fg_tail, vdd, vtail, ibias)
+        except ValueError:
+            print('failed to solve with fg_tail = %d' % fg_tail)
+            continue
+        tail_params = ndb.query(w=w_tail, vbs=0, vds=vtail, vgs=vbias)
+        ro_tail = 1 / (fg_tail * tail_params['gds'])
+        cdd_tail = fg_tail * tail_params['cdd']
+        tau = cdd_tail / (1 / ro_tail + gm_in)
+        if tau <= tau_max:
+            if ro_tail > ro_opt:
+                ro_opt = ro_tail
+                fg_opt = fg_tail
+                vbias_opt = vbias
+                ro_tail_opt = ro_tail
+                cdd_tail_opt = cdd_tail
+
+    if fg_opt is None:
+        raise ValueError('No solution for tail current source.')
+
+    char_dict['vbias'] = vbias_opt
+    char_dict['ro_tail'] = ro_tail_opt
+    char_dict['cdd_tail'] = cdd_tail_opt
+
+    return fg_opt
+
+
+def test(vstar_targ=0.3, vdd=0.8, vcm=0.65, env='tt'):
     root_dir = 'mos_data'
-    vstar_targ = 0.3
     cw = 6e-15
     rw = 200
     ton = 50e-12
     fanout = 2
     k_settle_targ = 0.95
-    gain_targ = 1.0
+    gain_range = [1.0, 6]
+    tau_tail_max = ton / 20
 
     w_list = [4, 4, 4, 4]
-    fg_in = 8
+    fg_in = 4
     # fg_casc_swp = [4]
     # fg_load_swp = [4]
-    fg_casc_swp = list(range(4, 17, 2))
-    fg_load_swp = list(range(4, 17, 2))
+    fg_casc_swp = list(range(6, 7, 2))
+    fg_load_swp = list(range(4, 5, 2))
+    fg_tail_swp = list(range(8, 9, 2))
 
     ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], [env], intent='ulvt', l=16e-9, method='spline')
     pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], [env], intent='ulvt', l=16e-9, method='spline')
@@ -167,19 +241,21 @@ def test(vdd=0.8, vcm=0.65, env='tt'):
     for fg_casc in fg_casc_swp:
         fg_gm_list = [fg_in, fg_casc]
         try:
-            ibias, vtail, vmid = solve_casc_gm_dc(db_gm_list, w_gm_list, fg_gm_list, vdd, vcm, vstar_targ)
+            ibias, vtail, vmid = solve_casc_gm_dc(env, db_gm_list, w_gm_list, fg_gm_list, vdd, vcm, vstar_targ)
         except ValueError:
+            print('failed to solve with fg_casc = %d' % fg_casc)
             continue
         for fg_load in fg_load_swp:
             try:
-                vload = solve_load_bias(pdb, w_load, fg_load, vdd, vcm, ibias)
+                vload = solve_load_bias(env, pdb, w_load, fg_load, vdd, vcm, ibias)
             except ValueError:
+                print('failed to solve with fg_load = %d' % fg_load)
                 continue
 
             fg_char_list = [fg_in, fg_casc, fg_load]
             char_dict = char_cascode(db_char_list, w_char_list, fg_char_list, vdd, vcm,
                                      vload, vtail, vmid, rw, cw, fanout, ton)
-            if char_dict['k_settle'] >= k_settle_targ and char_dict['dc_gain'] >= gain_targ:
+            if char_dict['k_settle'] >= k_settle_targ and gain_range[1] >= char_dict['dc_gain'] >= gain_range[0]:
                 ibias_cur = char_dict['ibias']
                 if ibias_cur < ibias_opt:
                     ibias_opt = ibias_cur
@@ -188,6 +264,10 @@ def test(vdd=0.8, vcm=0.65, env='tt'):
 
     if char_dict_opt is None:
         raise ValueError('No solution found.')
-    else:
-        pprint.pprint(fg_opt)
-        pprint.pprint(char_dict_opt)
+
+    fg_tail = design_tail(env, ndb, char_dict_opt, fg_tail_swp, w_list[0], vdd, tau_tail_max)
+    fg_opt = [fg_tail] + fg_opt
+    pprint.pprint(fg_opt)
+    pprint.pprint(char_dict_opt)
+
+    return char_dict_opt

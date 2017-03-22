@@ -6,7 +6,7 @@ from bag import BagProject
 from abs_templates_ec.serdes.amplifier import DiffAmp
 from bag.layout import RoutingGrid, TemplateDB
 
-impl_lib = 'AAAFOO_diffamp'
+impl_lib = 'AAAFOO_diffamp2'
 
 
 def diffamp(prj, temp_db, run_lvs=False, run_rcx=False):
@@ -16,9 +16,9 @@ def diffamp(prj, temp_db, run_lvs=False, run_rcx=False):
 
     params = dict(
         lch=16e-9,
-        w_dict={'load': 4, 'casc': 6, 'in': 4, 'tail': 6},
+        w_dict={'load': 4, 'casc': 4, 'in': 4, 'tail': 4},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'tail': 'ulvt'},
-        fg_dict={'load': 4, 'casc': 4, 'in': 4, 'tail': 4},
+        fg_dict={'load': 4, 'casc': 6, 'in': 4, 'tail': 8},
     )
 
     layout_params = dict(
