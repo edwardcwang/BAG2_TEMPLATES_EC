@@ -24,18 +24,18 @@ def find_vgs(ids_load, w, ibias, vdd, vcm, vtol=1e-6):
     return vbias - vdd
 
 
-def get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=400, vtol=1e-6):
+def get_iv_fun(ids_load, w, vgs, ibias, vdd, vout_fullscale, num_points=400, vtol=1e-6):
     # type: (DiffFunction, float, float, float, float, float, int, float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
 
     def f2(vin2):
         imin = -ids_load(np.array([w, 0, vin2 - vdd, vgs]))
-        imax = -ids_load(np.array([w, 0, vin2 - vstar_targ - vdd, vgs]))
+        imax = -ids_load(np.array([w, 0, vin2 - vout_fullscale - vdd, vgs]))
         return ((imax + imin) / 2 - ibias) / 1e-6
 
-    vout_max = scipy.optimize.brentq(f2, vstar_targ, vdd, xtol=vtol)  # type: float
+    vout_max = scipy.optimize.brentq(f2, vout_fullscale, vdd, xtol=vtol)  # type: float
 
     # calculate iin_diff to vout_cm/diff transfer function
-    vout_vec = np.linspace(vout_max - vstar_targ, vout_max, num_points, endpoint=True)  # type: np.ndarray
+    vout_vec = np.linspace(vout_max - vout_fullscale, vout_max, num_points, endpoint=True)  # type: np.ndarray
     arg = np.zeros((num_points, 4))
     arg[:, 0] = w
     arg[:, 2] = vout_vec - vdd
@@ -55,13 +55,13 @@ def get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=400, vtol=1e
     return vod, voc, iin_resample
 
 
-def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
+def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
     lch = 16e-9
     w = 6
     intent_range = ['ulvt', 'lvt', 'svt']
-    ibias_range = np.arange(30, 51, 5) * 1e-6
-    vcm_range = np.arange(650, 751, 25) * 1e-3
-    env_range = ['tt', 'ff', 'ss', 'ff_hot', 'ss_hot', 'ss_cold']
+    ibias_range = np.arange(50, 61, 5) * 1e-6
+    vcm_range = np.arange(700, 801, 25) * 1e-3
+    env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
     num_points = 200
     root_dir = 'tsmc16_FFC/mos_data'
 
@@ -77,6 +77,7 @@ def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
             res_list = []
             vg_list = []
             verr_list = []
+            imax_list = []
             # find worst case error across process
             for env in env_range:
                 ids_load = pdb.get_scalar_function('ids', env=env)
@@ -86,7 +87,7 @@ def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
                     verr_worst = None
                     break
 
-                vod, _, iin = get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=num_points)
+                vod, _, iin = get_iv_fun(ids_load, w, vgs, ibias, vdd, vout_fullscale, num_points=num_points)
 
                 # fit a line that passes through origin to the transfer function
                 res_val = scipy.optimize.curve_fit(fit_fun, iin, vod, p0=1)[0]
@@ -95,7 +96,7 @@ def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
                 res_list.append(res_val[0])
                 verr_list.append(verr_cur)
                 vg_list.append(vgs + vdd)
-
+                imax_list.append(iin[-1])
                 if verr_worst is None:
                     verr_worst = verr_cur
                 else:
@@ -105,7 +106,9 @@ def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
             if verr_worst is None:
                 print('failed to find vgs for ibias = %.4g uA, vcm = %.4g V' % (ibias_ua, vcm))
             elif verr_worst <= verr_max_mv:
-                print('intent = %s, ibias = %.4g uA, vcm = %.4g V, verr = %.4g mV' % (intent, ibias_ua, vcm, verr_worst))
-                print(res_list)
-                print(vg_list)
-                print(verr_list)
+                print(
+                    'intent = %s, ibias = %.4g uA, vcm = %.4g V, verr = %.4g mV' % (intent, ibias_ua, vcm, verr_worst))
+                print('rl: ', res_list)
+                print('vg: ', vg_list)
+                print('verr: ', verr_list)
+                print('imax: ', imax_list)
