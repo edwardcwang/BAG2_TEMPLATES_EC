@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from typing import List, Union, Dict, Tuple
-import pprint
+import cProfile
+import pstats
 
 import numpy as np
 import scipy.optimize
 import scipy.signal
 
 from bag.tech.mos import MosCharDB
-from bag.data.lti import LTICircuit
 
 
 def solve_nmos_dc(env,  # type: str
@@ -23,7 +23,7 @@ def solve_nmos_dc(env,  # type: str
                   itol=1e-9  # type: float
                   ):
     # type: (...) -> np.ndarray
-    ifun_list = [db.get_scalar_function('ids', env=env) for db in db_list]
+    ifun_list = [db.get_function('ids', env=env) for db in db_list]
     info_list = list(zip(ifun_list, w_list, fg_list, vg_list, vb_list))
     num_mos = len(w_list)
     vstack = np.zeros(num_mos + 1)
@@ -64,21 +64,21 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
                        inorm=1e-6,  # type: float
                        itol=1e-9  # type: float
                        ):
-    # type: (...) -> Tuple[np.ndarray, List[Tuple[np.ndarray, np.ndarray]]]
-    vin_vec = np.linspace(0, vin_max, num_points, endpoint=True)  # type: np.ndarray
+    # type: (...) -> Tuple[np.ndarray, List[np.ndarray]]
+    vin_vec = np.linspace(0, vin_max, num_points, endpoint=True)
     fg_tail, fg_in, fg_casc, fg_load = fg_list
     w_tail, w_in, w_casc, w_load = w_list
 
-    vout_info_list = []
+    vmat_list = []
     for env, vbias, vload, vt, vm in zip(env_list, vbias_list, vload_list, vtail_list, vmid_list):
-        ifun_tail = db_list[0].get_scalar_function('ids', env=env)
-        ifun_in = db_list[1].get_scalar_function('ids', env=env)
-        ifun_casc = db_list[2].get_scalar_function('ids', env=env)
-        ifun_load = db_list[3].get_scalar_function('ids', env=env)
+        ifun_tail = db_list[0].get_function('ids', env=env)
+        ifun_in = db_list[1].get_function('ids', env=env)
+        ifun_casc = db_list[2].get_function('ids', env=env)
+        ifun_load = db_list[3].get_function('ids', env=env)
         xguess = np.array([vt, vm - vt, vm - vt, vcm - vm, vcm - vm])
 
-        vop_list, von_list = [], []
-        for vin_diff in vin_vec:
+        vmat = np.empty((2 * num_points - 1, 5))
+        for idx, vin_diff in enumerate(vin_vec):
             vinp = vcm + vin_diff / 2
             vinn = vcm - vin_diff / 2
 
@@ -89,13 +89,13 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
                 voutp = vmidp + vd3
                 voutn = vmidn + vd4
 
-                itail = 2 * fg_tail * ifun_tail(np.array([w_tail, 0, vtail, vbias])) / inorm
-                iinp = fg_in * ifun_in(np.array([w_in, -vtail, vmidn - vtail, vinp])) / inorm
-                iinn = fg_in * ifun_in(np.array([w_in, -vtail, vmidp - vtail, vinn])) / inorm
-                icascp = fg_casc * ifun_casc(np.array([w_casc, -vmidn, voutn - vmidn, vdd - vmidn])) / inorm
-                icascn = fg_casc * ifun_casc(np.array([w_casc, -vmidp, voutp - vmidp, vdd - vmidp])) / inorm
-                iloadp = fg_load * -ifun_load(np.array([w_load, 0, voutn - vdd, vload - vdd])) / inorm
-                iloadn = fg_load * -ifun_load(np.array([w_load, 0, voutp - vdd, vload - vdd])) / inorm
+                itail = 2 * fg_tail * ifun_tail(np.array([w_tail, 0, vtail, vbias]))[0] / inorm
+                iinp = fg_in * ifun_in(np.array([w_in, -vtail, vmidn - vtail, vinp - vtail]))[0] / inorm
+                iinn = fg_in * ifun_in(np.array([w_in, -vtail, vmidp - vtail, vinn - vtail]))[0] / inorm
+                icascp = fg_casc * ifun_casc(np.array([w_casc, -vmidn, voutn - vmidn, vdd - vmidn]))[0] / inorm
+                icascn = fg_casc * ifun_casc(np.array([w_casc, -vmidp, voutp - vmidp, vdd - vmidp]))[0] / inorm
+                iloadp = fg_load * -ifun_load(np.array([w_load, 0, voutn - vdd, vload - vdd]))[0] / inorm
+                iloadn = fg_load * -ifun_load(np.array([w_load, 0, voutp - vdd, vload - vdd]))[0] / inorm
 
                 return np.array([iinp + iinn - itail, icascn - iinn, icascp - iinp, iloadn - icascn, iloadp - icascp])
 
@@ -107,12 +107,23 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
             vts, vd1s, vd2s, vd3s, vd4s = result.x
             vmps = vts + vd1s
             vmns = vts + vd2s
-            vop_list.append(vmps + vd3s)
-            von_list.append(vmns + vd4s)
+            vops = vmps + vd3s
+            vons = vmns + vd4s
+            vmat[idx + num_points - 1, 0] = vts
+            vmat[num_points - 1 - idx, 0] = vts
+            vmat[idx + num_points - 1, 1] = vmps
+            vmat[num_points - 1 - idx, 1] = vmns
+            vmat[idx + num_points - 1, 2] = vmns
+            vmat[num_points - 1 - idx, 2] = vmps
+            vmat[idx + num_points - 1, 3] = vops
+            vmat[num_points - 1 - idx, 3] = vons
+            vmat[idx + num_points - 1, 4] = vons
+            vmat[num_points - 1 - idx, 4] = vops
 
-        vout_info_list.append((np.array(vop_list), np.array(von_list)))
+        vmat_list.append(vmat)
 
-    return vin_vec, vout_info_list
+    vin_vec_diff = np.linspace(-vin_max, vin_max, 2 * num_points - 1, endpoint=True)  # type: np.ndarray
+    return vin_vec_diff, vmat_list
 
 
 def solve_casc_gm_dc(env_list,  # type: List[str]
@@ -136,7 +147,7 @@ def solve_casc_gm_dc(env_list,  # type: List[str]
         # find vbias to achieve target vstar
         vg_gm_list = [vcm, vdd]
         vb_gm_list = [0, 0]
-        vstar_in = db_list[0].get_scalar_function('vstar', env=env)
+        vstar_in = db_list[0].get_function('vstar', env=env)
         varr = np.zeros(1)
         win = w_list[0]
 
@@ -152,7 +163,7 @@ def solve_casc_gm_dc(env_list,  # type: List[str]
             raise ValueError('vstar is not correct.')
 
         vmid = vtail + varr[0]
-        in_params = db_list[0].query(w=win, vbs=-vtail, vds=vmid - vtail, vgs=vcm - vtail)
+        in_params = db_list[0].query(env=env, w=win, vbs=-vtail, vds=vmid - vtail, vgs=vcm - vtail)
         vtail_list.append(vtail)
         vmid_list.append(vmid)
         in_params_list.append(in_params)
@@ -166,7 +177,7 @@ def solve_load_bias(env_list, pdb, w_load, fg_load, vdd, vcm, ibias_list, vtol=1
 
     vload_list = []
     for env, ibias in zip(env_list, ibias_list):
-        ids_load = pdb.get_scalar_function('ids', env=env)
+        ids_load = pdb.get_function('ids', env=env)
 
         def fun2(vin2):
             return (-fg_load * ids_load(np.array([w_load, 0, vcm - vdd, vin2 - vdd])) - ibias) / 1e-6
@@ -179,7 +190,7 @@ def solve_load_bias(env_list, pdb, w_load, fg_load, vdd, vcm, ibias_list, vtol=1
 def solve_tail_bias(env, ndb, w_tail, fg_tail, vdd, vtail, ibias, vtol=1e-6):
     # type: (str, MosCharDB, float, int, float, float, float, float) -> float
     # find load bias voltage
-    ids_tail = ndb.get_scalar_function('ids', env=env)
+    ids_tail = ndb.get_function('ids', env=env)
 
     def fun2(vin2):
         return (fg_tail * ids_tail(np.array([w_tail, 0, vtail, vin2])) - ibias) / 1e-6
@@ -208,7 +219,7 @@ def design_tail(env_list, ndb, fg_in, in_params_list, vtail_list, fg_swp, w_tail
                 break
 
             vbias_list.append(vbias)
-            tail_params = ndb.query(w=w_tail, vbs=0, vds=vtail, vgs=vbias)
+            tail_params = ndb.query(env=env, w=w_tail, vbs=0, vds=vtail, vgs=vbias)
             ro_tail = 1 / (fg_tail * tail_params['gds'])
             gm_in = fg_in * in_params['gm']
             cdd_tail = fg_tail * tail_params['cdd']
@@ -233,33 +244,49 @@ def design_tail(env_list, ndb, fg_in, in_params_list, vtail_list, fg_swp, w_tail
     return fg_opt, ro_list_opt, vbias_list_opt
 
 
+def get_inl(xvec, yvec):
+    def fit_fun(xval, scale):
+        return scale * xval
+
+    mvec = scipy.optimize.curve_fit(fit_fun, xvec, yvec, p0=1)[0]
+    return mvec[0], np.max(np.abs(yvec - mvec[0] * xvec))
+
+
 def calc_linearity(env_list, fg_list, w_list, db_list, vbias_list, vload_list,
                    vtail_list, vmid_list, vcm, vdd, vin_max):
-    vin_vec, vout_info_listsolve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
-                                              vtail_list, vmid_list, vdd, vcm, vin_max, num_points=20)
+    vin_vec, vmat_list = solve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
+                                            vtail_list, vmid_list, vdd, vcm, vin_max, num_points=20)
+    verr_list = []
+    gain_list = []
+    for env, vmat in zip(env_list, vmat_list):
+        gain, verr = get_inl(vin_vec, vmat[:, 3] - vmat[:, 4])
+        gain_list.append(gain)
+        verr_list.append(verr)
+
+    return vmat_list, verr_list, gain_list
 
 
-def test(vstar_targ=0.3, vdd=1.0, vcm=0.7):
+def test(vstar_targ=0.25, vin_max=0.25, vdd=1.0, vcm=0.875):
     root_dir = 'tsmc16_FFC/mos_data'
-    env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
+    # env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
+    env_range = ['tt', 'ff', 'ss_cold', 'fs', 'sf']
     cw = 6e-15
     rw = 200
     ton = 50e-12
     fanout = 2
-    ibias_load_unit = 55e-6
     k_settle_targ = 0.95
-    gain_range = [1.0, 6]
     tau_tail_max = ton / 20
 
     w_list = [4, 4, 4, 6]
     fg_in = 4
     # fg_casc_swp = [4]
     # fg_load_swp = [4]
-    fg_casc_range = list(range(6, 7, 2))
-    fg_tail_swp = list(range(8, 9, 2))
+    fg_casc_range = list(range(4, 11, 2))
+    fg_tail_range = list(range(4, 9, 2))
+    fg_load_range = list(range(2, 7, 2))
 
-    ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], env_range, intent='ulvt', l=16e-9, method='spline')
-    pdb = MosCharDB(root_dir, 'nch', ['intent', 'l'], env_range, intent='svt', l=16e-9, method='spline')
+    ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], env_range, intent='ulvt', l=16e-9, method='linear')
+    pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], env_range, intent='ulvt', l=16e-9, method='linear')
 
     db_list = [ndb, ndb, ndb, pdb]
     db_gm_list = [ndb, ndb]
@@ -267,24 +294,56 @@ def test(vstar_targ=0.3, vdd=1.0, vcm=0.7):
     w_load = w_list[3]
     w_tail = w_list[0]
 
+    opt_verr = None
+    opt_verr_list = None
+    opt_ibias_list = None
+    opt_vmat_list = None
+    opt_vbias_list = None
+    opt_vload_list = None
+    opt_fg_list = None
     for fg_casc in fg_casc_range:
         fg_gm_list = [fg_in, fg_casc]
         try:
             in_params_list, vtail_list, vmid_list = solve_casc_gm_dc(env_range, db_gm_list, w_gm_list, fg_gm_list,
                                                                      vdd, vcm, vstar_targ)
-            fg_tail, rtail_list_opt, vbias_list = design_tail(env_range, ndb, fg_in, in_params_list, vtail_list,
-                                                              fg_tail_swp, w_tail, vdd, tau_tail_max)
-
         except ValueError:
-            print('failed to solve with fg_casc = %d' % fg_casc)
+            print('failed to solve cascode with fg_casc = %d' % fg_casc)
+            continue
+
+        try:
+            fg_tail, rtail_list_opt, vbias_list = design_tail(env_range, ndb, fg_in, in_params_list, vtail_list,
+                                                              fg_tail_range, w_tail, vdd, tau_tail_max)
+        except ValueError:
+            print('failed to solve tail with fg_casc = %d' % fg_casc)
             continue
 
         ibias_list = [fg_in * in_params['ids'] for in_params in in_params_list]
-        ibias_max = max(ibias_list)
-        fg_load = int(np.ceil(ibias_max / ibias_load_unit))
+        for fg_load in fg_load_range:
+            try:
+                vload_list = solve_load_bias(env_range, pdb, w_load, fg_load, vdd, vcm, ibias_list)
+            except ValueError:
+                print('failed to solve load with fg_load = %d' % fg_load)
+                continue
 
-        vload_list = solve_load_bias(env_range, pdb, w_load, fg_load, vdd, vcm, ibias_list)
+            fg_list = [fg_tail, fg_in, fg_casc, fg_load]
+            print('fg: %s' % str(fg_list))
+            vmat_list, verr_list, gain_list = calc_linearity(env_range, fg_list, w_list, db_list, vbias_list,
+                                                             vload_list, vtail_list, vmid_list, vcm, vdd, vin_max)
 
-        fg_list = [fg_tail, fg_in, fg_casc, fg_load]
-        calc_linearity(env_range, fg_list, w_list, db_list, vbias_list, vload_list, vtail_list,
-                       vmid_list, vcm, vdd, vstar_targ)
+            print('verr: %s' % str(verr_list))
+            verr_worst = max(verr_list)
+            if opt_verr is None or verr_worst < opt_verr:
+                opt_verr = verr_worst
+                opt_verr_list = verr_list
+                opt_vmat_list = vmat_list
+                opt_fg_list = fg_list
+                opt_vbias_list = vbias_list
+                opt_vload_list = vload_list
+                opt_ibias_list = ibias_list
+
+
+def profile():
+    cProfile.runctx('test()',
+                    globals(), locals(), filename='casc_linearity.data')
+    p = pstats.Stats('casc_linearity.data')
+    return p.strip_dirs()

@@ -55,12 +55,12 @@ def get_iv_fun(ids_load, w, vgs, ibias, vdd, vout_fullscale, num_points=400, vto
     return vod, voc, iin_resample
 
 
-def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
+def test(vout_fullscale=0.25, verr_max=10e-3, ratio_min_targ=0.75, vdd=1.0):
     lch = 16e-9
-    w = 6
-    intent_range = ['ulvt', 'svt', 'hvt']
-    ibias_range = np.arange(40, 61, 5) * 1e-6
-    vcm_range = np.arange(700, 801, 25) * 1e-3
+    w = 4
+    intent_range = ['ulvt', 'lvt', 'svt']
+    ibias_range = np.arange(80, 121, 2) * 1e-6
+    vcm_range = np.arange(800, 876, 25) * 1e-3
     env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
     num_points = 200
     # root_dir = 'tsmc16_FFC/mos_data'
@@ -81,7 +81,7 @@ def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
             imax_list = []
             # find worst case error across process
             for env in env_range:
-                ids_load = pdb.get_scalar_function('ids', env=env)
+                ids_load = pdb.get_function('ids', env=env)
                 try:
                     vgs = find_vgs(ids_load, w, ibias, vdd, vcm)
                 except ValueError:
@@ -93,7 +93,6 @@ def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
                 # fit a line that passes through origin to the transfer function
                 res_val = scipy.optimize.curve_fit(fit_fun, iin, vod, p0=1)[0]
                 verr_cur = 1e3 * np.max(np.abs(vod - res_val[0] * iin))
-
                 res_list.append(res_val[0])
                 verr_list.append(verr_cur)
                 vg_list.append(vgs + vdd)
@@ -106,9 +105,14 @@ def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
             ibias_ua = ibias * 1e6
             if verr_worst is None:
                 print('failed to find vgs for ibias = %.4g uA, vcm = %.4g V' % (ibias_ua, vcm))
-            elif verr_worst <= verr_max_mv:
-                print(
-                    'intent = %s, ibias = %.4g uA, vcm = %.4g V, verr = %.4g mV' % (intent, ibias_ua, vcm, verr_worst))
+                continue
+
+            imax_list = np.array(imax_list)
+            ratio_min = np.min(imax_list) / ibias
+
+            if verr_worst <= verr_max_mv and ratio_min >= ratio_min_targ:
+                print('intent = %s, ibias = %.4g uA, vcm = %.4g V, '
+                      'verr = %.4g mV, ratio_min = %.4g' % (intent, ibias_ua, vcm, verr_worst, ratio_min))
                 print('rl: ', res_list)
                 print('vg: ', vg_list)
                 print('verr: ', verr_list)
