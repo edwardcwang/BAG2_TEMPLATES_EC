@@ -55,28 +55,57 @@ def get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=400, vtol=1e
     return vod, voc, iin_resample
 
 
-def test(vstar_targ=0.3, vdd=0.9, env='tt'):
+def test(vstar_targ=0.3, verr_max=5e-3, vdd=0.9):
     lch = 16e-9
-    w = 4
-    intent_range = ['ulvt', 'svt']
-    ibias_range = np.arange(20, 61, 5) * 1e-6
-    vcm_range = [0.65, 0.7, 0.75]
+    w = 6
+    intent_range = ['ulvt', 'lvt', 'svt']
+    ibias_range = np.arange(30, 51, 5) * 1e-6
+    vcm_range = np.arange(650, 751, 25) * 1e-3
+    env_range = ['tt', 'ff', 'ss', 'ff_hot', 'ss_hot', 'ss_cold']
     num_points = 200
     root_dir = 'tsmc16_FFC/mos_data'
 
-    videal = np.linspace(-vstar_targ, vstar_targ, num_points, endpoint=True)  # type: np.ndarray
+    def fit_fun(xval, scale):
+        return scale * xval
 
+    verr_max_mv = verr_max * 1e3
     for intent in intent_range:
-        pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], [env], intent=intent, l=lch, method='spline')
-        ids_load = pdb.get_scalar_function('ids', env=env)
+        pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], env_range, intent=intent, l=lch, method='spline')
 
         for ibias, vcm in product(ibias_range, vcm_range):
-            try:
-                vgs = find_vgs(ids_load, w, ibias, vdd, vcm)
-            except ValueError:
-                print('failed to find vgs for ibias = %.4g uA' % (ibias * 1e6))
-                continue
-            vg = vdd + vgs
-            vod, voc, iin = get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=num_points)
-            verr = np.max(np.abs(vod - videal))
-            print('ibias = %.4g uA, vcm = %.4g, vg = %.4g, verr = %.4g mV' % (ibias * 1e6, vcm, vg, verr * 1e3))
+            verr_worst = None
+            res_list = []
+            vg_list = []
+            verr_list = []
+            # find worst case error across process
+            for env in env_range:
+                ids_load = pdb.get_scalar_function('ids', env=env)
+                try:
+                    vgs = find_vgs(ids_load, w, ibias, vdd, vcm)
+                except ValueError:
+                    verr_worst = None
+                    break
+
+                vod, _, iin = get_iv_fun(ids_load, w, vgs, ibias, vdd, vstar_targ, num_points=num_points)
+
+                # fit a line that passes through origin to the transfer function
+                res_val = scipy.optimize.curve_fit(fit_fun, iin, vod, p0=1)[0]
+                verr_cur = 1e3 * np.max(np.abs(vod - res_val[0] * iin))
+
+                res_list.append(res_val[0])
+                verr_list.append(verr_cur)
+                vg_list.append(vgs + vdd)
+
+                if verr_worst is None:
+                    verr_worst = verr_cur
+                else:
+                    verr_worst = max(verr_worst, verr_cur)
+
+            ibias_ua = ibias * 1e6
+            if verr_worst is None:
+                print('failed to find vgs for ibias = %.4g uA, vcm = %.4g V' % (ibias_ua, vcm))
+            elif verr_worst <= verr_max_mv:
+                print('intent = %s, ibias = %.4g uA, vcm = %.4g V, verr = %.4g mV' % (intent, ibias_ua, vcm, verr_worst))
+                print(res_list)
+                print(vg_list)
+                print(verr_list)
