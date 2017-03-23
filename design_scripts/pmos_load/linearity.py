@@ -58,12 +58,13 @@ def get_iv_fun(ids_load, w, vgs, ibias, vdd, vout_fullscale, num_points=400, vto
 def test(vout_fullscale=0.25, verr_max=4e-3, vdd=1.0):
     lch = 16e-9
     w = 6
-    intent_range = ['ulvt', 'lvt', 'svt']
-    ibias_range = np.arange(50, 61, 5) * 1e-6
+    intent_range = ['ulvt', 'svt', 'hvt']
+    ibias_range = np.arange(40, 61, 5) * 1e-6
     vcm_range = np.arange(700, 801, 25) * 1e-3
     env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
     num_points = 200
-    root_dir = 'tsmc16_FFC/mos_data'
+    # root_dir = 'tsmc16_FFC/mos_data'
+    root_dir = 'mos_data'
 
     def fit_fun(xval, scale):
         return scale * xval
