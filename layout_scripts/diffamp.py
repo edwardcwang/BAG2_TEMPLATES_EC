@@ -16,9 +16,9 @@ def diffamp(prj, temp_db, run_lvs=False, run_rcx=False):
 
     params = dict(
         lch=16e-9,
-        w_dict={'load': 4, 'casc': 4, 'in': 4, 'tail': 4},
+        w_dict={'load': 6, 'casc': 4, 'in': 4, 'tail': 4},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'tail': 'ulvt'},
-        fg_dict={'load': 4, 'casc': 6, 'in': 4, 'tail': 8},
+        fg_dict={'load': 2, 'casc': 4, 'in': 4, 'tail': 4},
     )
 
     layout_params = dict(
