@@ -11,15 +11,11 @@ import scipy.signal
 from bag.tech.mos import MosCharDB
 from bag.math.dfun import DiffFunction
 from bag.data.lti import LTICircuit
-from bag.data.dc import DCCircuit
 from bag.util.search import BinaryIterator
 
 
 def solve_casc_diff_dc(env_list,  # type: List[str]
-                       ndb,  # type: MosCharDB
-                       pdb,  # type: MosCharDB
-                       lch,  # type: float
-                       intent_list,  # type: List[str]
+                       db_list,  # type: List[MosCharDB]
                        w_list,  # type: List[Union[float, int]]
                        fg_list,  # type: List[int]
                        vbias_list,  # type: List[float]
@@ -35,39 +31,123 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
                        itol=1e-9  # type: float
                        ):
     # type: (...) -> Tuple[np.ndarray, List[np.ndarray], List[float], List[float]]
-
-    intent_tail, intent_in, intent_casc, intent_load = intent_list
-    w_tail, w_in, w_casc, w_load = w_list
-    fg_tail, fg_in, fg_casc, fg_load = fg_list
-    # construct DC circuit
-    circuit = DCCircuit(ndb, pdb)
-    circuit.add_transistor('tail', 'bias', 'gnd', 'gnd', 'nch', intent_tail, w_tail, lch, fg=2 * fg_tail)
-    circuit.add_transistor('midn', 'inp', 'tail', 'gnd', 'nch', intent_in, w_in, lch, fg=fg_in)
-    circuit.add_transistor('midp', 'inn', 'tail', 'gnd', 'nch', intent_in, w_in, lch, fg=fg_in)
-    circuit.add_transistor('outn', 'vdd', 'midn', 'gnd', 'nch', intent_casc, w_casc, lch, fg=fg_casc)
-    circuit.add_transistor('outp', 'vdd', 'midp', 'gnd', 'nch', intent_casc, w_casc, lch, fg=fg_casc)
-    circuit.add_transistor('outn', 'load', 'vdd', 'vdd', 'pch', intent_load, w_load, lch, fg=fg_load)
-    circuit.add_transistor('outp', 'load', 'vdd', 'vdd', 'pch', intent_load, w_load, lch, fg=fg_load)
-    circuit.set_voltage_source('vdd', vdd)
-
     vin_vec = np.linspace(0, vin_max, num_points, endpoint=True)
     vin_vec_diff = np.linspace(-vin_max, vin_max, 2 * num_points - 1, endpoint=True)  # type: np.ndarray
+    fg_tail, fg_in, fg_casc, fg_load = fg_list
+    w_tail, w_in, w_casc, w_load = w_list
+    db_tail, db_in, db_casc, db_load = db_list
     vmat_list = []
     verr_list = []
     gain_list = []
+
+    # varr = vtail, vmidp, vmidn, voutp, voutn
+    # tail_op = (w, 0, vtail, vbias)
+    tail_amat = np.array([[0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0],
+                          [1, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0]])
+    tail_bmat = np.array([w_tail, 0, 0, 0], dtype=float)
+    # inp_op = (w, -vtail, vmidn - vtail, vinp - vtail)
+    inp_amat = np.array([[0, 0, 0, 0, 0],
+                         [-1, 0, 0, 0, 0],
+                         [-1, 0, 1, 0, 0],
+                         [-1, 0, 0, 0, 0]])
+    inp_bmat = np.array([w_in, 0, 0, 0], dtype=float)
+    # inn_op = (w, -vtail, vmidp - vtail, vinn - vtail)
+    inn_amat = np.array([[0, 0, 0, 0, 0],
+                         [-1, 0, 0, 0, 0],
+                         [-1, 1, 0, 0, 0],
+                         [-1, 0, 0, 0, 0]])
+    inn_bmat = np.array([w_in, 0, 0, 0], dtype=float)
+    # cascp_op = (w, -vmidn, voutn - vmidn, vdd - vmidn)
+    cascp_amat = np.array([[0, 0, 0, 0, 0],
+                           [0, 0, -1, 0, 0],
+                           [0, 0, -1, 0, 1],
+                           [0, 0, -1, 0, 0]])
+    casc_bmat = np.array([w_casc, 0, 0, vdd], dtype=float)
+    # cascn_op = (w, -vmidp, voutp - vmidp, vdd - vmidp)
+    cascn_amat = np.array([[0, 0, 0, 0, 0],
+                           [0, -1, 0, 0, 0],
+                           [0, -1, 0, 1, 0],
+                           [0, -1, 0, 0, 0]])
+    # loadp_op = (w, 0, voutn - vdd, vload - vdd)
+    loadp_amat = np.array([[0, 0, 0, 0, 0],
+                           [0, 0, 0, 0, 0],
+                           [0, 0, 0, 0, 1],
+                           [0, 0, 0, 0, 0]])
+    load_bmat = np.array([w_load, 0, -vdd, 0], dtype=float)
+    # loadn_op = (w, 0, voutp - vdd, vload - vdd)
+    loadn_amat = np.array([[0, 0, 0, 0, 0],
+                           [0, 0, 0, 0, 0],
+                           [0, 0, 0, 1, 0],
+                           [0, 0, 0, 0, 0]])
+
     for env, vbias, vload, vt, vm in zip(env_list, vbias_list, vload_list, vtail_list, vmid_list):
-        circuit.set_voltage_source('bias', vbias)
-        circuit.set_voltage_source('load', vload)
-        guess_dict = {'tail': vt, 'midp': vm, 'midn': vm, 'outp': vcm, 'outn': vcm}
+        ifun_tail = db_tail.get_function('ids', env=env)
+        ifun_in = db_in.get_function('ids', env=env)
+        ifun_casc = db_casc.get_function('ids', env=env)
+        ifun_load = db_load.get_function('ids', env=env)
+        xguess = np.array([vt, vm, vm, vcm, vcm])
+        tail_bmat[3] = vbias
+        load_bmat[3] = vload - vdd
+
         vmat = np.empty((2 * num_points - 1, 5))
-
         for idx, vin_diff in enumerate(vin_vec):
-            circuit.set_voltage_source('inp', vcm + vin_diff / 2)
-            circuit.set_voltage_source('inn', vcm - vin_diff / 2)
+            inp_bmat[3] = vcm + vin_diff / 2
+            inn_bmat[3] = vcm - vin_diff / 2
 
-            op_dict = circuit.solve(env, guess_dict, inorm=inorm, itol=itol)
-            vts, vmps, vmns = op_dict['tail'], op_dict['midp'], op_dict['midn']
-            vops, vons = op_dict['outp'], op_dict['outn']
+            def fun(varr):
+                ans = np.empty(5)
+                itc = 2 * fg_tail / inorm * ifun_tail(np.dot(tail_amat, varr) + tail_bmat)
+                vtmp = np.empty((2, 4))
+                vtmp[0, :] = np.dot(inp_amat, varr) + inp_bmat
+                vtmp[1, :] = np.dot(inn_amat, varr) + inn_bmat
+                iipc, iinc = fg_in / inorm * ifun_in(vtmp)
+                vtmp[0, :] = np.dot(cascp_amat, varr) + casc_bmat
+                vtmp[1, :] = np.dot(cascn_amat, varr) + casc_bmat
+                icpc, icnc = fg_casc / inorm * ifun_casc(vtmp)
+                vtmp[0, :] = np.dot(loadp_amat, varr) + load_bmat
+                vtmp[1, :] = np.dot(loadn_amat, varr) + load_bmat
+                ilpc, ilnc = -fg_load / inorm * ifun_load(vtmp)
+                ans[0] = iipc + iinc - itc
+                ans[1] = icnc - iinc
+                ans[2] = icpc - iipc
+                ans[3] = ilnc - icnc
+                ans[4] = ilpc - icpc
+                return ans
+
+            def jac(varr):
+                ans = np.empty((5, 5))
+                itc = 2 * fg_tail / inorm * (ifun_tail.jacobian(np.dot(tail_amat, varr) + tail_bmat).dot(tail_amat))
+                vtmp = np.empty((2, 4))
+                vtmp[0, :] = np.dot(inp_amat, varr) + inp_bmat
+                vtmp[1, :] = np.dot(inn_amat, varr) + inn_bmat
+                iic = fg_in / inorm * ifun_in.jacobian(vtmp)
+                vtmp[0, :] = np.dot(cascp_amat, varr) + casc_bmat
+                vtmp[1, :] = np.dot(cascn_amat, varr) + casc_bmat
+                icc = fg_casc / inorm * ifun_casc.jacobian(vtmp)
+                vtmp[0, :] = np.dot(loadp_amat, varr) + load_bmat
+                vtmp[1, :] = np.dot(loadn_amat, varr) + load_bmat
+                ilc = -fg_load / inorm * ifun_load.jacobian(vtmp)
+                iicp = iic[0, :].dot(inp_amat)
+                iicn = iic[1, :].dot(inn_amat)
+                iccp = icc[0, :].dot(cascp_amat)
+                iccn = icc[1, :].dot(cascn_amat)
+                ilcp = ilc[0, :].dot(loadp_amat)
+                ilcn = ilc[1, :].dot(loadn_amat)
+                ans[0, :] = iicp + iicn - itc
+                ans[1, :] = iccn - iicn
+                ans[2, :] = iccp - iicp
+                ans[3, :] = ilcn - iccn
+                ans[4, :] = ilcp - iccp
+                return ans
+
+            result = scipy.optimize.root(fun, xguess, jac=jac, tol=itol / inorm, method='hybr')
+
+            if not result.success:
+                raise ValueError('solution failed.')
+
+            vts, vmps, vmns, vops, vons = result.x
             vmat[idx + num_points - 1, 0] = vts
             vmat[num_points - 1 - idx, 0] = vts
             vmat[idx + num_points - 1, 1] = vmps
@@ -154,22 +234,6 @@ def solve_casc_gm_dc(env_list,  # type: List[str]
     return in_params_list, vtail_list, vmid_list
 
 
-def solve_load_bias(env_list, pdb, w_load, fg_load, vdd, vcm, ibias_list, vtol=1e-6):
-    # type: (List[str], MosCharDB, float, int, float, float, List[float], float) -> List[float]
-    # find load bias voltage
-
-    vload_list = []
-    for env, ibias in zip(env_list, ibias_list):
-        ids_load = pdb.get_function('ids', env=env)
-
-        def fun2(vin2):
-            return (-fg_load * ids_load(np.array([w_load, 0, vcm - vdd, vin2 - vdd])) - ibias) / 1e-6
-
-        vload_list.append(scipy.optimize.brentq(fun2, 0, vdd, xtol=vtol))
-
-    return vload_list
-
-
 def solve_tail_bias(env, ndb, w_tail, fg_tail, vdd, vtail, ibias, vtol=1e-6):
     # type: (str, MosCharDB, float, int, float, float, float, float) -> float
     # find load bias voltage
@@ -235,13 +299,12 @@ def get_inl(xvec, yvec):
     return mvec[0], np.max(np.abs(yvec - mvec[0] * xvec))
 
 
-def characterize_casc_amp(env_list, lch, intent_list, fg_list, w_list, db_list, vbias_list, vload_list,
+def characterize_casc_amp(env_list, fg_list, w_list, db_list, vbias_list, vload_list,
                           vtail_list, vmid_list, vcm, vdd, vin_max,
                           cw, rw, fanout, ton, k_settle_targ, verr_max,
                           scale_res=0.1, scale_min=0.25, scale_max=20):
     # compute DC transfer function curve and compute linearity spec
-    ndb, pdb = db_list[0], db_list[-1]
-    results = solve_casc_diff_dc(env_list, ndb, pdb, lch, intent_list, w_list, fg_list, vbias_list, vload_list,
+    results = solve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
                                  vtail_list, vmid_list, vdd, vcm, vin_max, verr_max, num_points=20)
 
     vin_vec, vmat_list, verr_list, gain_list = results
@@ -284,10 +347,10 @@ def characterize_casc_amp(env_list, lch, intent_list, fg_list, w_list, db_list, 
             dc_gain = abs(dc_gain)
             _, yvec = scipy.signal.step(sys, T=tvec)  # type: Tuple[np.ndarray, np.ndarray]
             k_settle_cur = 1 - abs(yvec[-1] - sgn * dc_gain) / dc_gain
-            # print('scale = %.4g, k_settle = %.4g' % (cur_scale, k_settle_cur))
+            print('scale = %.4g, k_settle = %.4g' % (cur_scale, k_settle_cur))
             # update next scale factor
             if k_settle_cur >= k_settle_targ:
-                # print('save scale = %.4g' % cur_scale)
+                print('save scale = %.4g' % cur_scale)
                 bin_iter.save()
                 bin_iter.down()
             else:
@@ -306,7 +369,6 @@ def characterize_casc_amp(env_list, lch, intent_list, fg_list, w_list, db_list, 
 def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
     root_dir = 'tsmc16_FFC/mos_data'
     # env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
-    lch = 16e-9
     env_range = ['tt', 'ff', 'ss_cold', 'fs', 'sf']
     cw = 6e-15
     rw = 200
@@ -324,11 +386,10 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
     fg_tail_range = list(range(4, 9, 2))
     fg_load_range = list(range(2, 5, 2))
 
-    ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], env_range, intent='ulvt', l=lch, method='linear')
-    pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], env_range, intent='ulvt', l=lch, method='linear')
+    ndb = MosCharDB(root_dir, 'nch', ['intent', 'l'], env_range, intent='ulvt', l=16e-9, method='linear')
+    pdb = MosCharDB(root_dir, 'pch', ['intent', 'l'], env_range, intent='ulvt', l=16e-9, method='linear')
 
     db_list = [ndb, ndb, ndb, pdb]
-    intent_list = ['ulvt', 'ulvt', 'ulvt', 'ulvt']
     db_gm_list = [ndb, ndb]
     w_gm_list = w_list[1:3]
     w_load = w_list[3]
@@ -364,8 +425,8 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
             fg_list = [fg_tail, fg_in, fg_casc, fg_load]
             scale_min = min(fg_list) / min_fg
             try:
-                results = characterize_casc_amp(env_range, lch, intent_list, fg_list, w_list, db_list, vbias_list,
-                                                vload_list, vtail_list, vmid_list, vcm, vdd, vin_max, cw, rw,
+                results = characterize_casc_amp(env_range, fg_list, w_list, db_list, vbias_list, vload_list,
+                                                vtail_list, vmid_list, vcm, vdd, vin_max, cw, rw,
                                                 fanout, ton, k_settle_targ, verr_max, scale_min=scale_min)
             except ValueError:
                 print('failed nonlinearity or bandwidth spec with fg_load = %d' % fg_load)
