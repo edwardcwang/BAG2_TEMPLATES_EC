@@ -86,28 +86,24 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
         tail_bmat[3] = vbias
         load_bmat[3] = vload - vdd
 
-        ids_tail = 2 * fg_tail / inorm * ifun_tail.transform_input(tail_amat, tail_bmat)  # type: DiffFunction
-        ids_cascp = fg_casc / inorm * ifun_casc.transform_input(cascp_amat, casc_bmat)  # type: DiffFunction
-        ids_cascn = fg_casc / inorm * ifun_casc.transform_input(cascn_amat, casc_bmat)  # type: DiffFunction
-        ids_loadp = -fg_load / inorm * ifun_load.transform_input(loadp_amat, load_bmat)  # type: DiffFunction
-        ids_loadn = -fg_load / inorm * ifun_load.transform_input(loadn_amat, load_bmat)  # type: DiffFunction
-
         vmat = np.empty((2 * num_points - 1, 5))
         for idx, vin_diff in enumerate(vin_vec):
             inp_bmat[3] = vcm + vin_diff / 2
             inn_bmat[3] = vcm - vin_diff / 2
-            ids_inp = fg_in / inorm * ifun_in.transform_input(inp_amat, inp_bmat)  # type: DiffFunction
-            ids_inn = fg_in / inorm * ifun_in.transform_input(inn_amat, inn_bmat)  # type: DiffFunction
 
             def fun(varr):
                 ans = np.empty(5)
-                itc = ids_tail(varr)
-                iipc = ids_inp(varr)
-                iinc = ids_inn(varr)
-                icpc = ids_cascp(varr)
-                icnc = ids_cascn(varr)
-                ilpc = ids_loadp(varr)
-                ilnc = ids_loadn(varr)
+                itc = 2 * fg_tail / inorm * ifun_tail(np.dot(tail_amat, varr) + tail_bmat)
+                vtmp = np.empty((2, 4))
+                vtmp[0, :] = np.dot(inp_amat, varr) + inp_bmat
+                vtmp[1, :] = np.dot(inn_amat, varr) + inn_bmat
+                iipc, iinc = fg_in / inorm * ifun_in(vtmp)
+                vtmp[0, :] = np.dot(cascp_amat, varr) + casc_bmat
+                vtmp[1, :] = np.dot(cascn_amat, varr) + casc_bmat
+                icpc, icnc = fg_casc / inorm * ifun_casc(vtmp)
+                vtmp[0, :] = np.dot(loadp_amat, varr) + load_bmat
+                vtmp[1, :] = np.dot(loadn_amat, varr) + load_bmat
+                ilpc, ilnc = -fg_load / inorm * ifun_load(vtmp)
                 ans[0] = iipc + iinc - itc
                 ans[1] = icnc - iinc
                 ans[2] = icpc - iipc
@@ -117,18 +113,28 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
 
             def jac(varr):
                 ans = np.empty((5, 5))
-                itc = ids_tail.jacobian(varr)
-                iipc = ids_inp.jacobian(varr)
-                iinc = ids_inn.jacobian(varr)
-                icpc = ids_cascp.jacobian(varr)
-                icnc = ids_cascn.jacobian(varr)
-                ilpc = ids_loadp.jacobian(varr)
-                ilnc = ids_loadn.jacobian(varr)
-                ans[0, :] = iipc + iinc - itc
-                ans[1, :] = icnc - iinc
-                ans[2, :] = icpc - iipc
-                ans[3, :] = ilnc - icnc
-                ans[4, :] = ilpc - icpc
+                itc = 2 * fg_tail / inorm * (ifun_tail.jacobian(np.dot(tail_amat, varr) + tail_bmat).dot(tail_amat))
+                vtmp = np.empty((2, 4))
+                vtmp[0, :] = np.dot(inp_amat, varr) + inp_bmat
+                vtmp[1, :] = np.dot(inn_amat, varr) + inn_bmat
+                iic = fg_in / inorm * ifun_in.jacobian(vtmp)
+                vtmp[0, :] = np.dot(cascp_amat, varr) + casc_bmat
+                vtmp[1, :] = np.dot(cascn_amat, varr) + casc_bmat
+                icc = fg_casc / inorm * ifun_casc.jacobian(vtmp)
+                vtmp[0, :] = np.dot(loadp_amat, varr) + load_bmat
+                vtmp[1, :] = np.dot(loadn_amat, varr) + load_bmat
+                ilc = -fg_load / inorm * ifun_load.jacobian(vtmp)
+                iicp = iic[0, :].dot(inp_amat)
+                iicn = iic[1, :].dot(inn_amat)
+                iccp = icc[0, :].dot(cascp_amat)
+                iccn = icc[1, :].dot(cascn_amat)
+                ilcp = ilc[0, :].dot(loadp_amat)
+                ilcn = ilc[1, :].dot(loadn_amat)
+                ans[0, :] = iicp + iicn - itc
+                ans[1, :] = iccn - iicn
+                ans[2, :] = iccp - iicp
+                ans[3, :] = ilcn - iccn
+                ans[4, :] = ilcp - iccp
                 return ans
 
             result = scipy.optimize.root(fun, xguess, jac=jac, tol=itol / inorm, method='hybr')
