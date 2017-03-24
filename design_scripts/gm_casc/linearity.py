@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from typing import List, Union, Dict, Tuple
+from typing import List, Union, Dict, Tuple, Optional
 import cProfile
 import pstats
 
@@ -24,16 +24,21 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
                        vdd,  # type: float
                        vcm,  # type: float
                        vin_max,  # type: float
+                       verr_max,  # type: float
                        num_points=20,
                        inorm=1e-6,  # type: float
                        itol=1e-9  # type: float
                        ):
-    # type: (...) -> Tuple[np.ndarray, List[np.ndarray]]
+    # type: (...) -> Optional[Tuple[np.ndarray, List[np.ndarray], List[float], List[float]]]
     vin_vec = np.linspace(0, vin_max, num_points, endpoint=True)
+    vin_vec_diff = np.linspace(-vin_max, vin_max, 2 * num_points - 1, endpoint=True)  # type: np.ndarray
     fg_tail, fg_in, fg_casc, fg_load = fg_list
     w_tail, w_in, w_casc, w_load = w_list
     db_tail, db_in, db_casc, db_load = db_list
     vmat_list = []
+    verr_list = []
+    gain_list = []
+    failed = False
 
     # varr = vtail, vmidp, vmidn, voutp, voutn
     # tail_op = (w, 0, vtail, vbias)
@@ -154,10 +159,20 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
             vmat[idx + num_points - 1, 4] = vons
             vmat[num_points - 1 - idx, 4] = vops
 
+        gain, verr = get_inl(vin_vec_diff, vmat[:, 3] - vmat[:, 4])
+        if verr > verr_max:
+            # we didn't meet linearity spec, abort.
+            failed = True
+            break
+
+        gain_list.append(gain)
+        verr_list.append(verr)
         vmat_list.append(vmat)
 
-    vin_vec_diff = np.linspace(-vin_max, vin_max, 2 * num_points - 1, endpoint=True)  # type: np.ndarray
-    return vin_vec_diff, vmat_list
+    if failed:
+        return None
+
+    return vin_vec_diff, vmat_list, verr_list, gain_list
 
 
 def solve_casc_gm_dc(env_list,  # type: List[str]
@@ -306,16 +321,13 @@ def get_inl(xvec, yvec):
 
 def characterize_casc_amp(env_list, fg_list, w_list, db_list, vbias_list, vload_list,
                           vtail_list, vmid_list, ibias_list, vcm, vdd, vin_max,
-                          cw, rw, fanout, k_settle_targ):
+                          cw, rw, fanout, k_settle_targ, verr_max):
     # compute DC transfer function curve and compute linearity spec
-    vin_vec, vmat_list = solve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
-                                            vtail_list, vmid_list, vdd, vcm, vin_max, num_points=20)
-    verr_list = []
-    gain_list = []
-    for env, vmat in zip(env_list, vmat_list):
-        gain, verr = get_inl(vin_vec, vmat[:, 3] - vmat[:, 4])
-        gain_list.append(gain)
-        verr_list.append(verr)
+    results = solve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
+                                 vtail_list, vmid_list, vdd, vcm, vin_max, verr_max, num_points=20)
+    if results is None:
+        return None
+    vin_vec, vmat_list, verr_list, gain_list = results
 
     """
     # compute settling ratio
@@ -336,7 +348,7 @@ def characterize_casc_amp(env_list, fg_list, w_list, db_list, vbias_list, vload_
     return vmat_list, verr_list, gain_list
 
 
-def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775):
+def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
     root_dir = 'tsmc16_FFC/mos_data'
     # env_range = ['tt', 'ff', 'ss', 'fs', 'sf', 'ff_hot', 'ss_hot', 'ss_cold']
     env_range = ['tt', 'ff', 'ss_cold', 'fs', 'sf']
@@ -397,17 +409,22 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775):
                 continue
 
             fg_list = [fg_tail, fg_in, fg_casc, fg_load]
+            results = characterize_casc_amp(env_range, fg_list, w_list, db_list, vbias_list, vload_list,
+                                            vtail_list, vmid_list, ibias_list, vcm, vdd, vin_max, cw, rw,
+                                            fanout, k_settle_targ, verr_max)
+            if results is None:
+                print('nonlinearity spec failed for fg_load = %s.' % fg_load)
+                continue
+
+            vmat_list, verr_list, gain_list = results
             print('fg: %s' % str(fg_list))
             print(vbias_list)
             print(vload_list)
             print(vtail_list)
             print(vmid_list)
             print(ibias_list)
-            vmat_list, verr_list, gain_list = characterize_casc_amp(env_range, fg_list, w_list, db_list, vbias_list,
-                                                                    vload_list, vtail_list, vmid_list, ibias_list,
-                                                                    vcm, vdd, vin_max, cw, rw, fanout, k_settle_targ)
-
             print('verr: %s' % str(verr_list))
+            print('gain: %s' % str(gain_list))
             verr_worst = max(verr_list)
             if opt_verr is None or verr_worst < opt_verr:
                 opt_verr = verr_worst
