@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from typing import List, Union, Dict, Tuple, Optional
+from typing import List, Union, Dict, Tuple
 import cProfile
 import pstats
 
@@ -11,6 +11,7 @@ import scipy.signal
 from bag.tech.mos import MosCharDB
 from bag.math.dfun import DiffFunction
 from bag.data.lti import LTICircuit
+from bag.util.search import BinaryIterator
 
 
 def solve_casc_diff_dc(env_list,  # type: List[str]
@@ -29,7 +30,7 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
                        inorm=1e-6,  # type: float
                        itol=1e-9  # type: float
                        ):
-    # type: (...) -> Optional[Tuple[np.ndarray, List[np.ndarray], List[float], List[float]]]
+    # type: (...) -> Tuple[np.ndarray, List[np.ndarray], List[float], List[float]]
     vin_vec = np.linspace(0, vin_max, num_points, endpoint=True)
     vin_vec_diff = np.linspace(-vin_max, vin_max, 2 * num_points - 1, endpoint=True)  # type: np.ndarray
     fg_tail, fg_in, fg_casc, fg_load = fg_list
@@ -38,7 +39,6 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
     vmat_list = []
     verr_list = []
     gain_list = []
-    failed = False
 
     # varr = vtail, vmidp, vmidn, voutp, voutn
     # tail_op = (w, 0, vtail, vbias)
@@ -162,15 +162,11 @@ def solve_casc_diff_dc(env_list,  # type: List[str]
         gain, verr = get_inl(vin_vec_diff, vmat[:, 3] - vmat[:, 4])
         if verr > verr_max:
             # we didn't meet linearity spec, abort.
-            failed = True
-            break
+            raise ValueError('failed linearity error spec at env = %s' % env)
 
         gain_list.append(gain)
         verr_list.append(verr)
         vmat_list.append(vmat)
-
-    if failed:
-        return None
 
     return vin_vec_diff, vmat_list, verr_list, gain_list
 
@@ -270,7 +266,7 @@ def solve_tail_bias(env, ndb, w_tail, fg_tail, vdd, vtail, ibias, vtol=1e-6):
 def design_tail(env_list, ndb, fg_in, in_params_list, vtail_list, fg_swp, w_tail, vdd, tau_max):
     fg_opt = None
     ro_opt = 0
-    vbias_list_opt = None
+    vbias_list_opt = []
     ro_list_opt = None
     for fg_tail in fg_swp:
         tau_worst = 0
@@ -320,20 +316,23 @@ def get_inl(xvec, yvec):
 
 
 def characterize_casc_amp(env_list, fg_list, w_list, db_list, vbias_list, vload_list,
-                          vtail_list, vmid_list, ibias_list, vcm, vdd, vin_max,
-                          cw, rw, fanout, k_settle_targ, verr_max):
+                          vtail_list, vmid_list, vcm, vdd, vin_max,
+                          cw, rw, fanout, ton, k_settle_targ, verr_max,
+                          scale_res=0.1, scale_min=0.25, scale_max=20):
     # compute DC transfer function curve and compute linearity spec
     results = solve_casc_diff_dc(env_list, db_list, w_list, fg_list, vbias_list, vload_list,
                                  vtail_list, vmid_list, vdd, vcm, vin_max, verr_max, num_points=20)
-    if results is None:
-        return None
+
     vin_vec, vmat_list, verr_list, gain_list = results
 
-    """
     # compute settling ratio
     fg_in, fg_casc, fg_load = fg_list[1:]
     db_in, db_casc, db_load = db_list[1:]
     w_in, w_casc, w_load = w_list[1:]
+    fzin = 1.0 / (2 * ton)
+    wzin = 2 * np.pi * fzin
+    tvec = np.linspace(0, ton, 200, endpoint=True)
+    scale_list = []
     for env, vload, vtail, vmid in zip(env_list, vload_list, vtail_list, vmid_list):
         # step 1: construct half circuit
         in_params = db_in.query(env=env, w=w_in, vbs=-vtail, vds=vmid-vtail, vgs=vcm-vtail)
@@ -343,9 +342,44 @@ def characterize_casc_amp(env_list, fg_list, w_list, db_list, vbias_list, vload_
         circuit.add_transistor(in_params, 'mid', 'in', 'gnd', fg=fg_in)
         circuit.add_transistor(casc_params, 'd', 'gnd', 'mid', fg=fg_casc)
         circuit.add_transistor(load_params, 'd', 'gnd', 'gnd', fg=fg_load)
-    """
+        # step 2: get input capacitance
+        zin = circuit.get_impedance('in', fzin)
+        cin = (1 / zin).imag / wzin
+        circuit.add_cap(cin * fanout, 'out', 'gnd')
+        # step 3: find scale factor to achieve k_settle
+        bin_iter = BinaryIterator(scale_min, None, step=scale_res, is_float=True)
+        while bin_iter.has_next():
+            # add scaled wired parasitics
+            cur_scale = bin_iter.get_next()
+            cap_cur = cw / 2 / cur_scale
+            res_cur = rw * cur_scale
+            circuit.add_cap(cap_cur, 'd', 'gnd')
+            circuit.add_cap(cap_cur, 'out', 'gnd')
+            circuit.add_res(res_cur, 'd', 'out')
+            # get settling factor
+            sys = circuit.get_voltage_gain_system('in', 'out')
+            dc_gain = sys.freqresp(w=np.array([0.1]))[1][0]
+            sgn = 1 if dc_gain.real >= 0 else -1
+            dc_gain = abs(dc_gain)
+            _, yvec = scipy.signal.step(sys, T=tvec)  # type: Tuple[np.ndarray, np.ndarray]
+            k_settle_cur = 1 - abs(yvec[-1] - sgn * dc_gain) / dc_gain
+            print('scale = %.4g, k_settle = %.4g' % (cur_scale, k_settle_cur))
+            # update next scale factor
+            if k_settle_cur >= k_settle_targ:
+                print('save scale = %.4g' % cur_scale)
+                bin_iter.save()
+                bin_iter.down()
+            else:
+                if cur_scale > scale_max:
+                    raise ValueError('cannot meet settling time spec at scale = %d' % cur_scale)
+                bin_iter.up()
+            # remove wire parasitics
+            circuit.add_cap(-cap_cur, 'd', 'gnd')
+            circuit.add_cap(-cap_cur, 'out', 'gnd')
+            circuit.add_res(-res_cur, 'd', 'out')
+        scale_list.append(bin_iter.get_last_save())
 
-    return vmat_list, verr_list, gain_list
+    return vmat_list, verr_list, gain_list, scale_list
 
 
 def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
@@ -358,6 +392,7 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
     fanout = 2
     k_settle_targ = 0.95
     tau_tail_max = ton / 20
+    min_fg = 2
 
     w_list = [4, 4, 4, 6]
     fg_in = 4
@@ -376,13 +411,8 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
     w_load = w_list[3]
     w_tail = w_list[0]
 
-    opt_verr = None
-    opt_verr_list = None
-    opt_ibias_list = None
-    opt_vmat_list = None
-    opt_vbias_list = None
-    opt_vload_list = None
-    opt_fg_list = None
+    opt_ibias = None
+    opt_info = {}
     for fg_casc in fg_casc_range:
         fg_gm_list = [fg_in, fg_casc]
         try:
@@ -409,31 +439,41 @@ def test(vstar_targ=0.25, vin_max=0.25, vdd=0.9, vcm=0.775, verr_max=10e-3):
                 continue
 
             fg_list = [fg_tail, fg_in, fg_casc, fg_load]
-            results = characterize_casc_amp(env_range, fg_list, w_list, db_list, vbias_list, vload_list,
-                                            vtail_list, vmid_list, ibias_list, vcm, vdd, vin_max, cw, rw,
-                                            fanout, k_settle_targ, verr_max)
-            if results is None:
-                print('nonlinearity spec failed for fg_load = %s.' % fg_load)
+            scale_min = min(fg_list) / min_fg
+            try:
+                results = characterize_casc_amp(env_range, fg_list, w_list, db_list, vbias_list, vload_list,
+                                                vtail_list, vmid_list, vcm, vdd, vin_max, cw, rw,
+                                                fanout, ton, k_settle_targ, verr_max, scale_min=scale_min)
+            except ValueError:
+                print('failed nonlinearity or bandwidth spec with fg_load = %d' % fg_load)
                 continue
 
-            vmat_list, verr_list, gain_list = results
-            print('fg: %s' % str(fg_list))
-            print(vbias_list)
-            print(vload_list)
-            print(vtail_list)
-            print(vmid_list)
-            print(ibias_list)
-            print('verr: %s' % str(verr_list))
-            print('gain: %s' % str(gain_list))
-            verr_worst = max(verr_list)
-            if opt_verr is None or verr_worst < opt_verr:
-                opt_verr = verr_worst
-                opt_verr_list = verr_list
-                opt_vmat_list = vmat_list
-                opt_fg_list = fg_list
-                opt_vbias_list = vbias_list
-                opt_vload_list = vload_list
-                opt_ibias_list = ibias_list
+            vmat_list, verr_list, gain_list, scale_list = results
+            max_scale = max(scale_list)
+            ibias_list = [max_scale * val for val in ibias_list]
+            print('fg: %s' % ' '.join(['%.4g' % val for val in fg_list]))
+            print('vbias: %s' % ' '.join(['%.4g' % val for val in vbias_list]))
+            print('vload: %s' % ' '.join(['%.4g' % val for val in vload_list]))
+            print('vtail: %s' % ' '.join(['%.4g' % val for val in vtail_list]))
+            print('vmid: %s' % ' '.join(['%.4g' % val for val in vmid_list]))
+            print('verr: %s' % ' '.join(['%.4g' % val for val in verr_list]))
+            print('gain: %s' % ' '.join(['%.4g' % val for val in gain_list]))
+            print('scale: %s' % ' '.join(['%.4g' % val for val in scale_list]))
+            print('ibias: %s' % ' '.join(['%.4g' % val for val in ibias_list]))
+            ibias_worst = max(ibias_list)
+            if opt_ibias is None or ibias_worst < opt_ibias:
+                opt_ibias = ibias_worst
+                opt_info['fg_list'] = fg_list
+                opt_info['vbias_list'] = vbias_list
+                opt_info['vload_list'] = vload_list
+                opt_info['vtail_list'] = vtail_list
+                opt_info['vmid_list'] = vmid_list
+                opt_info['verr_list'] = verr_list
+                opt_info['gain_list'] = gain_list
+                opt_info['ibias_list'] = ibias_list
+                opt_info['scale'] = max_scale
+
+    return opt_info
 
 
 def profile():
