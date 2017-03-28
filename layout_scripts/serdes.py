@@ -24,7 +24,7 @@ def rxcore(prj, temp_db):
         sig_widths=[1, 2],
         sig_spaces=[2, 2],
         clk_widths=[2, 3, 4],
-        clk_spaces=[2, 3, 8],
+        clk_spaces=[2, 3, 6],
         sig_clk_spaces=[2, 3],
         min_fg_sep=4,
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 4},
