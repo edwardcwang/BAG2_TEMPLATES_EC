@@ -31,8 +31,8 @@ def rxcore(prj, temp_db):
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
         integ_params={'load': 4, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
         alat_params_list=[
-            {'load': 2, 'casc': 6, 'in': 6, 'sw': 6, 'tail': 8},
-            {'load': 2, 'casc': 6, 'in': 6, 'sw': 6, 'tail': 4},
+            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
+            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
         ],
         dlat_params_list=[
             {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
@@ -41,10 +41,10 @@ def rxcore(prj, temp_db):
         ],
         intsum_params=dict(
             fg_load=12,
-            fg_offset=24,
+            fg_offset=12,
             gm_fg_list=[
-                {'casc': 6, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 6, 'in': 6, 'sw': 6, 'tail': 4},
+                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
+                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
                 {'casc': 4, 'in': 4, 'tail': 2},
                 {'casc': 4, 'in': 4, 'tail': 2},
                 {'casc': 8, 'in': 8, 'tail': 4},
@@ -52,9 +52,9 @@ def rxcore(prj, temp_db):
             sgn_list=[1, -1, -1, -1, -1],
         ),
         summer_params=dict(
-            fg_load=10,
+            fg_load=4,
             gm_fg_list=[
-                {'casc': 6, 'in': 6, 'sw': 6, 'tail': 8},
+                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
                 {'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
             ],
             sgn_list=[1, -1],
