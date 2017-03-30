@@ -3,7 +3,7 @@
 import pprint
 
 from bag import BagProject
-from abs_templates_ec.passives.hp_filter import HighPassFilter
+from abs_templates_ec.passives.hp_filter import HighPassFilterDiff
 from bag.layout import RoutingGrid, TemplateDB
 
 impl_lib = 'AAAFOO_hpf'
@@ -15,15 +15,21 @@ def hpf(prj, temp_db):
     layout_params = dict(
         l=10e-6,
         w=0.36e-6,
+        cap_edge_margin=0.5e-6,
+        cap_diff_margin=0.5e-6,
+        num_seg=2,
+        num_cap_layer=4,
+        tr_idx_list=[6.5, 3.5],
+        io_width=2,
         sub_lch=16e-9,
         sub_w=6,
-        sub_type='ptap',
+        sub_type='ntap',
         threshold='ulvt',
         res_type='standard',
     )
 
     pprint.pprint(layout_params)
-    template = temp_db.new_template(params=layout_params, temp_cls=HighPassFilter, debug=False)
+    template = temp_db.new_template(params=layout_params, temp_cls=HighPassFilterDiff, debug=False)
     temp_db.instantiate_layout(prj, template, 'hpfilter', debug=True)
 
 if __name__ == '__main__':
