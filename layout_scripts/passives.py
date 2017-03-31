@@ -15,6 +15,7 @@ def hpf(prj, temp_db):
     layout_params = dict(
         l=10e-6,
         w=0.36e-6,
+        cap_port_width=2,
         cap_edge_margin=0.5e-6,
         cap_diff_margin=0.5e-6,
         num_seg=2,
