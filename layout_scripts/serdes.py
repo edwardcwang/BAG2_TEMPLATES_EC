@@ -100,6 +100,6 @@ if __name__ == '__main__':
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
         core_params, fg_tot = rxcore(bprj, tdb)
-        rxcore_sch(bprj, core_params, fg_tot)
+        # rxcore_sch(bprj, core_params, fg_tot)
     else:
         print('loading BAG project')
