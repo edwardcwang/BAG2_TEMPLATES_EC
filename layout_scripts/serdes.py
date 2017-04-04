@@ -62,6 +62,13 @@ def rxcore(prj, temp_db):
         clk_spaces=[2, 3, 6],
         sig_clk_spaces=[2, 3],
         min_fg_sep=4,
+        dlev_cap_params=dict(
+            num_layer=4,
+            width=3.0,
+            height=6.0,
+            cap_space=0.5,
+            port_widths=[1, 2, 1, 1],
+        ),
     )
 
     layout_params.update(params)
