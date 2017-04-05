@@ -62,13 +62,6 @@ def rxcore(prj, temp_db):
         clk_spaces=[2, 3, 6],
         sig_clk_spaces=[2, 3],
         min_fg_sep=4,
-        dlev_cap_params=dict(
-            num_layer=4,
-            width=3.0,
-            height=6.0,
-            cap_space=0.5,
-            port_widths=[1, 2, 1, 1],
-        ),
     )
 
     layout_params.update(params)
@@ -97,10 +90,10 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = bag.BagProject()
         temp = 70.0
-        layers = [4, 5, 6, 7]
-        spaces = [0.084, 0.080, 0.084, 0.080]
-        widths = [0.060, 0.100, 0.060, 0.100]
-        bot_dir = 'x'
+        layers = [3, 4, 5, 6, 7]
+        spaces = [0.05, 0.084, 0.080, 0.084, 0.080]
+        widths = [0.04, 0.060, 0.100, 0.060, 0.100]
+        bot_dir = 'y'
 
         routing_grid = RoutingGrid(bprj.tech_info, layers, spaces, widths, bot_dir)
 
