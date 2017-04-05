@@ -5,9 +5,41 @@ import pprint
 from bag import BagProject
 from abs_templates_ec.passives.hp_filter import HighPassFilter
 from abs_templates_ec.passives.cap import MOMCap
+from abs_templates_ec.serdes.rxpassive import RXClkArray
 from bag.layout import RoutingGrid, TemplateDB
 
 impl_lib = 'AAAFOO_hpf'
+
+
+def rxclk(prj, temp_db):
+    # type: (BagProject, TemplateDB) -> None
+
+    layout_params = dict(
+        passive_params=dict(
+            l=10e-6,
+            w=0.36e-6,
+            cap_edge_margin=0.3,
+            num_seg=2,
+            num_cap_layer=3,
+            io_width=2,
+            sub_lch=16e-9,
+            sub_w=6,
+            sub_type='ntap',
+            threshold='ulvt',
+            res_type='standard',
+        ),
+        out_width=3,
+        in_width=1,
+        clk_names=['nmos_integ', 'nmos_analog', 'pmos_analog', 'nmos_intsum', 'pmos_digital',
+                   'nmos_digital', 'pmos_summer', 'nmos_summer', 'nmos_tap1'],
+        clk_locs=[0, 1, 1, 0, 1, 0, 1, 0, 0],
+        parity=1,
+        show_pins=True,
+    )
+
+    pprint.pprint(layout_params)
+    template = temp_db.new_template(params=layout_params, temp_cls=RXClkArray, debug=False)
+    temp_db.instantiate_layout(prj, template, 'rxclkarr', debug=True)
 
 
 def hpf(prj, temp_db):
@@ -16,7 +48,7 @@ def hpf(prj, temp_db):
     layout_params = dict(
         l=10e-6,
         w=0.36e-6,
-        cap_edge_margin=0.5,
+        cap_edge_margin=0.3,
         num_seg=2,
         num_cap_layer=3,
         io_width=2,
@@ -59,16 +91,17 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
         temp = 70.0
-        layers = [3, 4, 5, 6, 7]
-        spaces = [0.04, 0.084, 0.080, 0.084, 0.080]
-        widths = [0.05, 0.060, 0.100, 0.060, 0.100]
+        layers = [3, 4, 5, 6, 7, 8]
+        spaces = [0.04, 0.084, 0.080, 0.084, 0.080, 0.36]
+        widths = [0.05, 0.060, 0.100, 0.060, 0.100, 0.36]
         bot_dir = 'y'
 
         routing_grid = RoutingGrid(bprj.tech_info, layers, spaces, widths, bot_dir)
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        hpf(bprj, tdb)
+        # hpf(bprj, tdb)
         # mom(bprj, tdb)
+        rxclk(bprj, tdb)
     else:
         print('loading BAG project')
