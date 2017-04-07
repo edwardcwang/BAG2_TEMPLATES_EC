@@ -51,7 +51,7 @@ def rxfrontend(prj, temp_db):
         ],
     )
 
-    rcore_params = dict(
+    rxcore_params = dict(
         ptap_w=6,
         ntap_w=6,
         hm_width=1,
@@ -65,7 +65,7 @@ def rxfrontend(prj, temp_db):
         min_fg_sep=4,
     )
 
-    rcore_params.update(params)
+    rxcore_params.update(params)
 
     rxclk_params = dict(
         passive_params=dict(
@@ -108,10 +108,20 @@ def rxfrontend(prj, temp_db):
         sub_w=6,
     )
 
+    dlev_cap_params = dict(
+        num_layer=5,
+        bot_layer=3,
+        port_widths=[1, 1, 2, 1, 1],
+        width=2.0,
+        height=10.0,
+        space=0.4,
+    )
+
     layout_params = dict(
-        core_params=rcore_params,
+        core_params=rxcore_params,
         rxclk_params=rxclk_params,
         ctle_params=ctle_params,
+        dlev_cap_params=dlev_cap_params,
     )
 
     pprint.pprint(layout_params)
