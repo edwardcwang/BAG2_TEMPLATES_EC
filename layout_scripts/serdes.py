@@ -87,9 +87,30 @@ def rxfrontend(prj, temp_db):
         clk_locs=[0, 1, 1, 0, 1, 0, 1, 0, 0],
     )
 
+    ctle_params = dict(
+        l=0.72e-6,
+        w=0.36e-6,
+        cap_edge_margin=0.2,
+        num_cap_layer=4,
+        cap_port_widths=[2, 1, 2, 2],
+        cap_port_offset=3,
+        num_r1=4,
+        num_r2=6,
+        num_dumr=1,
+        num_dumc=4,
+        io_width=2,
+        sub_type='ntap',
+        threshold='ulvt',
+        res_type='standard',
+        sup_width=2,
+        sub_lch=16e-9,
+        sub_w=6,
+    )
+
     layout_params = dict(
         core_params=rcore_params,
         rxclk_params=rxclk_params,
+        ctle_params=ctle_params,
     )
 
     pprint.pprint(layout_params)
