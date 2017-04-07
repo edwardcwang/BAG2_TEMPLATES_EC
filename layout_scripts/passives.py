@@ -5,10 +5,31 @@ import pprint
 from bag import BagProject
 from abs_templates_ec.passives.hp_filter import HighPassFilter
 from abs_templates_ec.passives.cap import MOMCap
-from abs_templates_ec.serdes.rxpassive import RXClkArray
+from abs_templates_ec.serdes.rxpassive import RXClkArray, CTLECore
 from bag.layout import RoutingGrid, TemplateDB
 
 impl_lib = 'AAAFOO_hpf'
+
+
+def res_ctle(prj, temp_db):
+    # type: (BagProject, TemplateDB) -> None
+
+    layout_params = dict(
+        l=0.72e-6,
+        w=0.36e-6,
+        num_r1=4,
+        num_r2=6,
+        num_dumr=1,
+        num_dumc=2,
+        io_width=2,
+        sub_type='ntap',
+        threshold='ulvt',
+        res_type='standard',
+    )
+
+    pprint.pprint(layout_params)
+    template = temp_db.new_template(params=layout_params, temp_cls=CTLECore, debug=False)
+    temp_db.instantiate_layout(prj, template, 'resctle', debug=True)
 
 
 def rxclk(prj, temp_db):
@@ -102,6 +123,7 @@ if __name__ == '__main__':
 
         # hpf(bprj, tdb)
         # mom(bprj, tdb)
-        rxclk(bprj, tdb)
+        # rxclk(bprj, tdb)
+        res_ctle(bprj, tdb)
     else:
         print('loading BAG project')
