@@ -4,7 +4,7 @@ import pprint
 
 import bag
 from abs_templates_ec.serdes.rxcore import RXCore
-from abs_templates_ec.serdes.rxtop import RXFrontend
+from abs_templates_ec.serdes.rxtop import RXFrontendCore
 from bag.layout import RoutingGrid, TemplateDB
 
 impl_lib = 'AAAFOO_serdes'
@@ -125,7 +125,7 @@ def rxfrontend(prj, temp_db):
     )
 
     pprint.pprint(layout_params)
-    template = temp_db.new_template(params=layout_params, temp_cls=RXFrontend, debug=False)
+    template = temp_db.new_template(params=layout_params, temp_cls=RXFrontendCore, debug=False)
     temp_db.instantiate_layout(prj, template, cell_name, debug=True)
 
 
