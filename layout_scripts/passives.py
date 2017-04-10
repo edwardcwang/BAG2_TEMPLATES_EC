@@ -4,11 +4,11 @@ import pprint
 
 from bag import BagProject
 from abs_templates_ec.passives.hp_filter import HighPassFilter
-from abs_templates_ec.passives.cap import MOMCap
+from abs_templates_ec.passives.cap import MOMCap, MOMCapUnit
 from abs_templates_ec.serdes.rxpassive import RXClkArray, CTLE
 from bag.layout import RoutingGrid, TemplateDB
 
-impl_lib = 'AAAFOO_hpf'
+impl_lib = 'serdes_rx_top'
 
 
 def ctle(prj, temp_db):
@@ -112,6 +112,23 @@ def mom(prj, temp_db):
     temp_db.instantiate_layout(prj, template, 'momcap', debug=True)
 
 
+def mom_unit(prj, temp_db):
+    # type: (BagProject, TemplateDB) -> None
+
+    layout_params = dict(
+        cap_bot_layer=4,
+        cap_top_layer=7,
+        cap_width=5.0,
+        cap_height=5.0,
+        port_width=3,
+        show_pins=True,
+    )
+
+    pprint.pprint(layout_params)
+    template = temp_db.new_template(params=layout_params, temp_cls=MOMCapUnit, debug=False)
+    temp_db.instantiate_layout(prj, template, 'momcap', debug=True)
+
+
 if __name__ == '__main__':
 
     local_dict = locals()
@@ -131,6 +148,7 @@ if __name__ == '__main__':
         # hpf(bprj, tdb)
         # mom(bprj, tdb)
         # rxclk(bprj, tdb)
-        ctle(bprj, tdb)
+        # ctle(bprj, tdb)
+        mom_unit(bprj, tdb)
     else:
         print('loading BAG project')
