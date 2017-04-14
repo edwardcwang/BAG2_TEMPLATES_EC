@@ -7,7 +7,7 @@ from abs_templates_ec.serdes.rxcore import RXCore
 from abs_templates_ec.serdes.rxtop import RXFrontendCore
 from bag.layout import RoutingGrid, TemplateDB
 
-impl_lib = 'AAAFOO_serdes'
+impl_lib = 'AAAFOO_serdes_rx'
 # impl_lib = 'craft_io_ec'
 
 
@@ -20,6 +20,7 @@ def rxfrontend(prj, temp_db):
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 4},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
         integ_params={'load': 4, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+        nac_off=4,
         alat_params_list=[
             {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
             {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
@@ -137,6 +138,7 @@ def rxcore(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 4},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
+        nac_off=4,
         integ_params={'load': 4, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
         alat_params_list=[
             {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
@@ -217,8 +219,8 @@ if __name__ == '__main__':
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        # core_params, fg_tot = rxcore(bprj, tdb)
-        # rxcore_sch(bprj, core_params, fg_tot)
-        rxfrontend(bprj, tdb)
+        core_params, fg_tot = rxcore(bprj, tdb)
+        rxcore_sch(bprj, core_params, fg_tot)
+        # rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
