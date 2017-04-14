@@ -70,10 +70,12 @@ def rxfrontend(prj, temp_db):
 
     rxclk_params = dict(
         passive_params=dict(
-            l=10e-6,
+            l=15e-6,
             w=0.36e-6,
             cap_edge_margin=0.25,
-            num_seg=2,
+            nx=2,
+            ny=2,
+            cap_height=10.0,
             num_cap_layer=3,
             io_width=[1, 1, 3],
             sub_lch=16e-9,
@@ -110,8 +112,8 @@ def rxfrontend(prj, temp_db):
     )
 
     dlev_cap_params = dict(
-        num_layer=5,
-        bot_layer=3,
+        num_layer=4,
+        bot_layer=4,
         port_widths=[1, 1, 2, 1, 1],
         width=2.0,
         height=10.0,
@@ -219,8 +221,8 @@ if __name__ == '__main__':
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        core_params, fg_tot = rxcore(bprj, tdb)
-        rxcore_sch(bprj, core_params, fg_tot)
-        # rxfrontend(bprj, tdb)
+        # core_params, fg_tot = rxcore(bprj, tdb)
+        # rxcore_sch(bprj, core_params, fg_tot)
+        rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
