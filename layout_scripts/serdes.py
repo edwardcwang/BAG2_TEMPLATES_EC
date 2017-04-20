@@ -8,11 +8,12 @@ from abs_templates_ec.serdes.rxtop import RXFrontendCore
 from bag.layout import RoutingGrid, TemplateDB
 
 impl_lib = 'AAAFOO_serdes_rx'
+
+
 # impl_lib = 'craft_io_ec'
 
 
 def rxfrontend(prj, temp_db):
-
     cell_name = 'rx_frontend'
 
     params = dict(
@@ -133,7 +134,6 @@ def rxfrontend(prj, temp_db):
 
 
 def rxcore(prj, temp_db):
-
     cell_name = 'rxcore_ffe1_dfe4'
 
     params = dict(
