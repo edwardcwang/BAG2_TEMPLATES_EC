@@ -7,7 +7,7 @@ from abs_templates_ec.serdes.rxcore import RXCore
 from abs_templates_ec.serdes.rxtop import RXFrontendCore
 from bag.layout import RoutingGrid, TemplateDB
 
-impl_lib = 'AAAFOO_serdes_rx'
+impl_lib = 'AAAFOO_serdes_rx2'
 
 
 # impl_lib = 'craft_io_ec'
@@ -18,38 +18,42 @@ def rxfrontend(prj, temp_db):
 
     params = dict(
         lch=16e-9,
-        w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 4},
+        w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
-        integ_params={'load': 4, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4},
         nac_off=4,
         alat_params_list=[
-            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
+            {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
+            {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
         ],
         intsum_params=dict(
             fg_load=12,
-            fg_offset=12,
+            load_fg_list=[4, 4, 4, 0, 0, 0],
             gm_fg_list=[
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 4, 'in': 4, 'tail': 2},
-                {'casc': 4, 'in': 4, 'tail': 2},
-                {'casc': 8, 'in': 8, 'tail': 4},
+                {'in': 2, 'sw': 2, 'tail': 4},
+                {'casc': 4, 'in': 2, 'sw': 2, 'tail': 4},
+                {'in': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
             ],
-            sgn_list=[1, -1, -1, -1, -1],
+            flip_sd_list=[False, True, True, True, True, True],
+            sgn_list=[1, -1, -1, -1, -1, -1],
         ),
         summer_params=dict(
-            fg_load=4,
+            fg_load=8,
+            load_fg_list=[8, 0],
             gm_fg_list=[
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+                {'casc': 10, 'in': 8, 'sw': 4, 'tail': 12},
+                {'casc': 8, 'in': 8, 'sw': 4, 'tail': 2},
             ],
+            flip_sd_list=[False, False],
             sgn_list=[1, -1],
         ),
         dlat_params_list=[
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
         ],
     )
 
@@ -138,38 +142,42 @@ def rxcore(prj, temp_db):
 
     params = dict(
         lch=16e-9,
-        w_dict={'load': 6, 'casc': 6, 'in': 4, 'sw': 4, 'tail': 4},
+        w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
+        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4},
         nac_off=4,
-        integ_params={'load': 4, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
         alat_params_list=[
-            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-            {'load': 2, 'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
+            {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
+            {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
         ],
         intsum_params=dict(
             fg_load=12,
-            fg_offset=12,
+            load_fg_list=[4, 4, 4, 0, 0, 0],
             gm_fg_list=[
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 4, 'in': 4, 'tail': 2},
-                {'casc': 4, 'in': 4, 'tail': 2},
-                {'casc': 8, 'in': 8, 'tail': 4},
+                {'in': 2, 'sw': 2, 'tail': 4},
+                {'casc': 4, 'in': 2, 'sw': 2, 'tail': 4},
+                {'in': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
+                {'in': 4, 'sw': 4, 'tail': 2},
             ],
-            sgn_list=[1, -1, -1, -1, -1],
+            flip_sd_list=[False, True, True, True, True, True],
+            sgn_list=[1, -1, -1, -1, -1, -1],
         ),
         summer_params=dict(
-            fg_load=4,
+            fg_load=8,
+            load_fg_list=[8, 0],
             gm_fg_list=[
-                {'casc': 8, 'in': 6, 'sw': 6, 'tail': 4},
-                {'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+                {'casc': 10, 'in': 8, 'sw': 4, 'tail': 12},
+                {'casc': 8, 'in': 8, 'sw': 4, 'tail': 2},
             ],
+            flip_sd_list=[False, False],
             sgn_list=[1, -1],
         ),
         dlat_params_list=[
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
-            {'load': 6, 'casc': 4, 'in': 4, 'sw': 4, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
+            {'load': 4, 'casc': 10, 'in': 10, 'sw': 6, 'tail': 2},
         ],
     )
 
@@ -221,8 +229,8 @@ if __name__ == '__main__':
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        # core_params, fg_tot = rxcore(bprj, tdb)
+        core_params, fg_tot = rxcore(bprj, tdb)
         # rxcore_sch(bprj, core_params, fg_tot)
-        rxfrontend(bprj, tdb)
+        # rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
