@@ -20,7 +20,7 @@ def rxfrontend(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
-        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4},
+        integ_params={'load': 6, 'in': 4, 'sw': 4, 'tail': 4},
         nac_off=4,
         alat_params_list=[
             {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
@@ -144,7 +144,7 @@ def rxcore(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
-        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4},
+        integ_params={'load': 6, 'in': 4, 'sw': 4, 'tail': 4},
         nac_off=4,
         alat_params_list=[
             {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
