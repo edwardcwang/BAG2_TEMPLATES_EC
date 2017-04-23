@@ -160,6 +160,7 @@ def rxcore(prj, temp_db):
                 {'in': 4, 'sw': 2, 'tail': 2, 'ref': 2},
                 {'in': 4, 'sw': 2, 'tail': 2, 'ref': 2},
             ],
+            load_decap_list=[False, False, True, False, False, False],
             decap_list=[True, True, True, True, True, True],
             flip_sd_list=[True, False, True, True, True, True],
             sgn_list=[1, -1, -1, -1, -1, -1],
@@ -231,7 +232,7 @@ if __name__ == '__main__':
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
         sch_params = rxcore(bprj, tdb)
-        rxcore_sch(bprj, sch_params)
+        # rxcore_sch(bprj, sch_params)
         # rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
