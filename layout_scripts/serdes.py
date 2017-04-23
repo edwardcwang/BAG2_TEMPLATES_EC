@@ -28,7 +28,6 @@ def rxfrontend(prj, temp_db):
         ],
         intsum_params=dict(
             fg_load=12,
-            load_fg_list=[4, 4, 4, 0, 0, 0],
             gm_fg_list=[
                 {'in': 2, 'sw': 2, 'tail': 4},
                 {'casc': 4, 'in': 2, 'sw': 2, 'tail': 4},
@@ -144,7 +143,7 @@ def rxcore(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
-        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4, 'ref': 2},
+        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4, 'ref': 2, 'flip_sd': True},
         nac_off=4,
         alat_params_list=[
             {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
@@ -152,7 +151,6 @@ def rxcore(prj, temp_db):
         ],
         intsum_params=dict(
             fg_load=12,
-            load_fg_list=[4, 4, 4, 0, 0, 0],
             gm_fg_list=[
                 {'in': 2, 'sw': 2, 'tail': 4, 'ref': 2},
                 {'casc': 4, 'in': 2, 'sw': 2, 'tail': 4},
@@ -202,15 +200,16 @@ def rxcore(prj, temp_db):
     template = temp_db.new_template(params=layout_params, temp_cls=RXCore, debug=False)
     print('total number of fingers: %d' % template.num_fingers)
     temp_db.instantiate_layout(prj, template, cell_name, debug=True)
-    return params, template.num_fingers
+    return template.sch_params
 
 
-def rxcore_sch(prj, sch_params, tot_fg):
+def rxcore_sch(prj, sch_params):
     lib_name = 'serdes_bm_templates'
     cell_name = 'rxcore_ffe1_dfe4'
 
     dsn = prj.create_design_module(lib_name, cell_name)
-    dsn.design_specs(fg_tot=2 * tot_fg, **sch_params)
+    dsn.design_specs(**sch_params)
+    print('creating rxcore schematics')
     dsn.implement_design(impl_lib, top_cell_name=cell_name, erase=True)
 
 
@@ -230,8 +229,8 @@ if __name__ == '__main__':
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        core_params, fg_tot = rxcore(bprj, tdb)
-        # rxcore_sch(bprj, core_params, fg_tot)
+        sch_params = rxcore(bprj, tdb)
+        rxcore_sch(bprj, sch_params)
         # rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
