@@ -143,6 +143,7 @@ def rxcore(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
+        buf_params={'fg0': 4, 'fg1': 12, 'nmos_type': 'in'},
         integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4, 'ref': 2, 'flip_sd': True},
         nac_off=4,
         alat_params_list=[
@@ -230,7 +231,7 @@ if __name__ == '__main__':
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
         sch_params = rxcore(bprj, tdb)
-        rxcore_sch(bprj, sch_params)
+        # rxcore_sch(bprj, sch_params)
         # rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
