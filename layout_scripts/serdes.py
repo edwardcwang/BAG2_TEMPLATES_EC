@@ -20,7 +20,8 @@ def rxfrontend(prj, temp_db):
         lch=16e-9,
         w_dict={'load': 3, 'casc': 4, 'in': 3, 'sw': 3, 'tail': 3},
         th_dict={'load': 'ulvt', 'casc': 'ulvt', 'in': 'ulvt', 'sw': 'ulvt', 'tail': 'svt'},
-        integ_params={'load': 6, 'in': 4, 'sw': 4, 'tail': 4},
+        buf_params={'fg0': 4, 'fg1': 12, 'nmos_type': 'in'},
+        integ_params={'load': 6, 'in': 4, 'sw': 2, 'tail': 4, 'ref': 2, 'flip_sd': True},
         nac_off=4,
         alat_params_list=[
             {'load': 4, 'casc': 8, 'in': 6, 'sw': 4, 'tail': 8},
@@ -29,14 +30,16 @@ def rxfrontend(prj, temp_db):
         intsum_params=dict(
             fg_load=12,
             gm_fg_list=[
-                {'in': 2, 'sw': 2, 'tail': 4},
+                {'in': 2, 'sw': 2, 'tail': 4, 'ref': 2},
                 {'casc': 4, 'in': 2, 'sw': 2, 'tail': 4},
-                {'in': 4, 'tail': 2},
-                {'in': 4, 'sw': 4, 'tail': 2},
-                {'in': 4, 'sw': 4, 'tail': 2},
-                {'in': 4, 'sw': 4, 'tail': 2},
+                {'in': 4, 'tail': 2, 'ref': 2},
+                {'in': 4, 'sw': 2, 'tail': 2, 'ref': 2},
+                {'in': 4, 'sw': 2, 'tail': 2, 'ref': 2},
+                {'in': 4, 'sw': 2, 'tail': 2, 'ref': 2},
             ],
-            flip_sd_list=[False, True, True, True, True, True],
+            load_decap_list=[False, False, True, False, False, False],
+            decap_list=[True, True, True, True, True, True],
+            flip_sd_list=[True, False, True, True, True, True],
             sgn_list=[1, -1, -1, -1, -1, -1],
         ),
         summer_params=dict(
@@ -90,8 +93,11 @@ def rxfrontend(prj, temp_db):
             sup_width=2,
         ),
         io_width=3,
-        clk_names=['nmos_integ', 'nmos_analog', 'pmos_analog', 'nmos_intsum', 'pmos_digital',
+        sup_width=3,
+        clk_names=['', 'nmos_analog', 'pmos_analog', '', 'pmos_digital',
                    'nmos_digital', 'pmos_summer', 'nmos_summer', 'nmos_tap1'],
+        sub_types=['ptap', 'ptap', 'ntap', 'ntap', 'ntap',
+                   'ptap', 'ntap', 'ptap', 'ptap'],
         clk_locs=[0, 1, 1, 0, 1, 0, 1, 0, 0],
     )
 
@@ -107,7 +113,7 @@ def rxfrontend(prj, temp_db):
         num_dumr=1,
         num_dumc=4,
         io_width=2,
-        sub_type='ntap',
+        sub_type='ptap',
         threshold='ulvt',
         res_type='standard',
         sup_width=2,
@@ -231,8 +237,8 @@ if __name__ == '__main__':
 
         tdb = TemplateDB('template_libs.def', routing_grid, impl_lib, use_cybagoa=True)
 
-        sch_params = rxcore(bprj, tdb)
+        # sch_params = rxcore(bprj, tdb)
         # rxcore_sch(bprj, sch_params)
-        # rxfrontend(bprj, tdb)
+        rxfrontend(bprj, tdb)
     else:
         print('loading BAG project')
