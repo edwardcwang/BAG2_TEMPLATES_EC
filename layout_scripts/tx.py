@@ -75,7 +75,7 @@ def generate(prj, temp_db):
             sub_type='ptap',
             threshold='ulvt',
             res_type='high_speed',
-            em_specs={'idc': 0.738e-3, 'dc_temp': 105},
+            em_specs={'idc': 1.333e-3, 'dc_temp': 105},
         ),
         lch=16e-9,
         w=4,
@@ -83,9 +83,10 @@ def generate(prj, temp_db):
         fg_ref=2,
         threshold='ulvt',
         input_width=2,
-        input_space=1,
+        input_space=2,
         ntap_w=6,
         guard_ring_nf=2,
+        top_layer=8,
     )
 
     pprint.pprint(layout_params)
