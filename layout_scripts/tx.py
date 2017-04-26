@@ -84,19 +84,20 @@ def generate(prj, temp_db):
         threshold='ulvt',
         input_width=2,
         input_space=2,
-        ntap_w=6,
+        ntap_w=10,
         guard_ring_nf=2,
         top_layer=8,
     )
 
     pprint.pprint(layout_params)
     template = temp_db.new_template(params=layout_params, temp_cls=CMLDriverPMOS, debug=False)
+    print('num fingers = %d' % template.num_fingers)
     temp_db.instantiate_layout(prj, template, cell_name, debug=True)
 
 
 if __name__ == '__main__':
 
-    impl_lib = 'AAAFOO_tx'
+    impl_lib = 'serdes_tx_driver'
 
     local_dict = locals()
     if 'bprj' not in local_dict:
