@@ -77,8 +77,8 @@ class Test(LaygoBase):
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        self.set_row_types(['nch'], ['R0'], False, 0)
-        self.add_laygo_primitive('fg2d', w=4, threshold='lvt', loc=(0, 0), nx=4, spx=1)
+        self.set_row_types(['nch'], ['R0'], ['lvt'], True, 15)
+        self.add_laygo_primitive('fg2d', w=4, loc=(0, 0), nx=4, spx=1)
 
 
 def make_tdb(prj, target_lib, specs):
