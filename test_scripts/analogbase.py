@@ -180,7 +180,6 @@ class AmpBase(SerdesRXBase):
         draw_params['nds_tracks'] = nds_tracks
 
         self.draw_rows(**draw_params)
-        self.set_size_from_array_box(self.mos_conn_layer + 1)
 
 
 def make_tdb(prj, target_lib, specs):
