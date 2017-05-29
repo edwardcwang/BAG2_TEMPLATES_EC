@@ -139,7 +139,8 @@ class AmpBase(SerdesRXBase):
                             diff_space,  # type: int
                             hm_width,  # type: int
                             hm_cur_width,  # type: int
-                            guard_ring_nf  # type: int
+                            guard_ring_nf,  # type: int
+                            **kwargs
                             ):
         # type: (...) -> None
 
