@@ -78,7 +78,7 @@ class Test(LaygoBase):
         """Draw the layout of a dynamic latch chain.
         """
         self.set_row_types(['nch'], ['R0'], ['lvt'], True, 15)
-        self.add_laygo_primitive('fg2d', w=4, loc=(0, 0), nx=4, spx=1)
+        self.add_laygo_primitive('fg2d', loc=(0, 0), nx=4, spx=1)
         self.set_laygo_size()
         self.fill_space()
         self.draw_boundary_cells()
