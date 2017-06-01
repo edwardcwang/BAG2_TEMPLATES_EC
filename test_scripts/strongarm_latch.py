@@ -31,7 +31,7 @@ from typing import Dict, Any, Set
 import yaml
 
 from bag import BagProject
-from bag.layout.routing import RoutingGrid
+from bag.layout.routing import RoutingGrid, TrackID
 from bag.layout.template import TemplateDB
 
 from abs_templates_ec.laygo.core import LaygoBase
@@ -77,6 +77,7 @@ class StrongArmLatch(LaygoBase):
             num_nblk='number of nmos blocks, single-ended.',
             num_pblk='number of pmos blocks, single-ended.',
             num_dblk='number of dummy blocks on both sides.',
+            show_pins='True to draw pin geometries.',
         )
 
     def draw_layout(self):
@@ -87,13 +88,14 @@ class StrongArmLatch(LaygoBase):
         num_pblk = self.params['num_pblk']
         num_nblk = self.params['num_nblk']
         num_dblk = self.params['num_dblk']
+        show_pins = self.params['show_pins']
 
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
-        num_g_tracks = [0, 1, 1, 1, 1, 0]
-        num_gb_tracks = [0, 0, 1, 1, 1, 0]
-        num_ds_tracks = [1, 1, 1, 1, 1, 1]
+        num_g_tracks = [0, 1, 2, 2, 1, 0]
+        num_gb_tracks = [0, 1, 1, 1, 2, 0]
+        num_ds_tracks = [2, 0, 1, 1, 1, 2]
         if draw_boundaries:
             end_mode = 15
         else:
@@ -123,7 +125,7 @@ class StrongArmLatch(LaygoBase):
         cur_col, row_idx = 0, 4
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
         cur_col += colp
-        rst_tailp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
+        rst_midp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
         cur_col += 1
         rst_outp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
         cur_col += 1
@@ -135,7 +137,7 @@ class StrongArmLatch(LaygoBase):
         cur_col += num_pblk
         rst_outn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
         cur_col += 1
-        rst_tailn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
+        rst_midn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
         cur_col += 1
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
 
@@ -143,7 +145,7 @@ class StrongArmLatch(LaygoBase):
         cur_col, row_idx = 0, 3
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
         cur_col += coln - 1
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx)), 1))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), 1))
         cur_col += 1
         invn_outp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=num_nblk, spx=1)
         cur_col += num_nblk
@@ -151,7 +153,7 @@ class StrongArmLatch(LaygoBase):
         cur_col += 1
         invn_outn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=num_nblk, spx=1)
         cur_col += num_nblk
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx)), -1))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), -1))
         cur_col += 1
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
 
@@ -159,7 +161,7 @@ class StrongArmLatch(LaygoBase):
         cur_col, row_idx = 0, 2
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
         cur_col += coln - 1
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx)), 1))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), 1))
         cur_col += 1
         inn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=num_nblk, spx=1)
         cur_col += num_nblk
@@ -167,7 +169,7 @@ class StrongArmLatch(LaygoBase):
         cur_col += 1
         inp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=num_nblk, spx=1)
         cur_col += num_nblk
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx)), -1))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), -1))
         cur_col += 1
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
 
@@ -192,6 +194,106 @@ class StrongArmLatch(LaygoBase):
         self.fill_space()
         # draw boundaries and get guard ring power rail tracks
         self.draw_boundary_cells()
+
+        # connect ground
+        source_vss = pw_tap.get_all_port_pins('VSS') + tailn.get_all_port_pins('s') + tailp.get_all_port_pins('s')
+        drain_vss = []
+        for inst, mode in ndum_list:
+            if mode == 0:
+                source_vss.extend(inst.get_all_port_pins('s'))
+            drain_vss.extend(inst.get_all_port_pins('d'))
+            drain_vss.extend(inst.get_all_port_pins('g'))
+        source_vss_tid = self.make_track_id(0, 'ds', 0, width=1)
+        drain_vss_tid = self.make_track_id(0, 'ds', 1, width=1)
+        source_vss_warrs = self.connect_to_tracks(source_vss, source_vss_tid)
+        drain_vss_warrs = self.connect_to_tracks(drain_vss, drain_vss_tid)
+        self.add_pin('VSS', source_vss_warrs, show=show_pins)
+        self.add_pin('VSS', drain_vss_warrs, show=show_pins)
+
+        # connect tail
+        tail = []
+        for inst in (tailp, tailn, inp, inn):
+            tail.extend(inst.get_all_port_pins('d'))
+        tail_tid = self.make_track_id(1, 'gb', 0)
+        self.connect_to_tracks(tail, tail_tid)
+
+        # connect tail clk
+        clk_list = []
+        tclk_tid = self.make_track_id(1, 'g', 0)
+        tclk = tailp.get_all_port_pins('g') + tailn.get_all_port_pins('g')
+        clk_list.append(self.connect_to_tracks(tclk, tclk_tid))
+
+        # connect inputs
+        in_tid = self.make_track_id(2, 'g', 1)
+        inp_warr = self.connect_to_tracks(inp.get_all_port_pins('g'), in_tid)
+        inn_warr = self.connect_to_tracks(inn.get_all_port_pins('g'), in_tid)
+
+        # connect tail switch clk
+        tsw2 = self.make_track_id(2, 'g', 0)
+        clk_list.append(self.connect_to_tracks(tail_sw2.get_all_port_pins('g'), tsw2, min_len_mode=0))
+
+        # get output/mid horizontal track id
+        hm_layer = self.conn_layer + 1
+        nout_idx = self.get_track_index(3, 'gb', 0)
+        mid_idx = self.get_track_index(3, 'ds', 0)
+        mid_idx = min(mid_idx, nout_idx - 1)
+        nout_tid = TrackID(hm_layer, nout_idx)
+        mid_tid = TrackID(hm_layer, mid_idx)
+
+        # connect nmos mid
+        nmidp = inn.get_all_port_pins('s') + invn_outp.get_all_port_pins('s')
+        nmidn = inp.get_all_port_pins('s') + invn_outn.get_all_port_pins('s')
+        nmidp = self.connect_to_tracks(nmidp, mid_tid)
+        nmidn = self.connect_to_tracks(nmidn, mid_tid)
+
+        # connect pmos mid
+        mid_tid = self.make_track_id(4, 'gb', 1)
+        pmidp = self.connect_to_tracks(rst_midp.get_all_port_pins('d'), mid_tid, min_len_mode=0)
+        pmidn = self.connect_to_tracks(rst_midn.get_all_port_pins('d'), mid_tid, min_len_mode=0)
+
+        # connect nmos output
+        noutp = self.connect_to_tracks(invn_outp.get_all_port_pins('d'), nout_tid)
+        noutn = self.connect_to_tracks(invn_outn.get_all_port_pins('d'), nout_tid)
+
+        # connect pmos output
+        pout_tid = self.make_track_id(4, 'gb', 0)
+        poutp = invp_outp.get_all_port_pins('d') + rst_outp.get_all_port_pins('d')
+        poutn = invp_outn.get_all_port_pins('d') + rst_outn.get_all_port_pins('d')
+        poutp = self.connect_to_tracks(poutp, pout_tid)
+        poutn = self.connect_to_tracks(poutn, pout_tid)
+
+        # connect clock in inverter row
+        pclk = []
+        for inst in (rst_midp, rst_midn, rst_outp, rst_outn):
+            pclk.extend(inst.get_all_port_pins('g'))
+        nclk = tail_sw1.get_all_port_pins('g')
+        pclk_tid = self.make_track_id(4, 'g', 0)
+        nclk_tid = self.make_track_id(3, 'g', 0)
+        clk_list.append(self.connect_to_tracks(pclk, pclk_tid))
+        clk_list.append(self.connect_to_tracks(nclk, nclk_tid, min_len_mode=0))
+
+        # connect inverter gate
+        invg_tid = self.make_track_id(3, 'g', 1)
+        invgp = invn_outp.get_all_port_pins('g') + invp_outp.get_all_port_pins('g')
+        invgp = self.connect_to_tracks(invgp, invg_tid)
+        invgn = invn_outn.get_all_port_pins('g') + invp_outn.get_all_port_pins('g')
+        invgn = self.connect_to_tracks(invgn, invg_tid)
+
+        # connect vdd
+        source_vdd = nw_tap.get_all_port_pins('VDD')
+        source_vdd.extend(invp_outp.get_all_port_pins('s'))
+        source_vdd.extend(invp_outn.get_all_port_pins('s'))
+        drain_vdd = []
+        for inst, _ in pdum_list:
+            source_vdd.extend(inst.get_all_port_pins('s'))
+            drain_vdd.extend(inst.get_all_port_pins('d'))
+            drain_vdd.extend(inst.get_all_port_pins('g'))
+        source_vdd_tid = self.make_track_id(5, 'ds', 0, width=1)
+        drain_vdd_tid = self.make_track_id(5, 'ds', 1, width=1)
+        source_vdd_warrs = self.connect_to_tracks(source_vdd, source_vdd_tid)
+        drain_vdd_warrs = self.connect_to_tracks(drain_vdd, drain_vdd_tid)
+        self.add_pin('VDD', source_vdd_warrs, show=show_pins)
+        self.add_pin('VDD', drain_vdd_warrs, show=show_pins)
 
 
 def make_tdb(prj, target_lib, specs):
