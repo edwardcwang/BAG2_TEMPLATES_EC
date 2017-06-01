@@ -29,6 +29,7 @@
 from typing import Dict, Any, Set
 
 import yaml
+import copy
 
 from bag import BagProject, float_to_si_string
 from bag.layout.routing import RoutingGrid
@@ -105,7 +106,7 @@ def generate(prj, specs):
     lib_name = 'AAAFOO'
 
     params = specs['params']
-    lch_list = specs['swp_params']['lch']
+    lch_vmsp_list = specs['swp_params']['lch_vmsp']
     gr_nf_list = specs['swp_params']['guard_ring_nf']
 
     temp_db = make_tdb(prj, lib_name, specs)
@@ -115,8 +116,11 @@ def generate(prj, specs):
     name_fmt = 'LAYGOBASE_L%s_gr%d'
     for gr_nf in gr_nf_list:
         params['guard_ring_nf'] = gr_nf
-        for lch in lch_list:
-            params['config']['lch'] = lch
+        for lch, vm_sp in lch_vmsp_list:
+            config = copy.deepcopy(params['config'])
+            config['lch'] = lch
+            config['tr_spaces'][1] = vm_sp
+            params['config'] = config
             temp_list.append(temp_db.new_template(params=params, temp_cls=Test, debug=False))
             name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
     print('creating layout')
