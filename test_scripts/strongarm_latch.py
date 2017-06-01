@@ -92,7 +92,7 @@ class StrongArmLatch(LaygoBase):
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
         num_g_tracks = [0, 1, 1, 1, 1, 0]
-        num_gb_tracks = [1, 1, 1, 1, 1, 1]
+        num_gb_tracks = [0, 0, 1, 1, 1, 0]
         num_ds_tracks = [1, 1, 1, 1, 1, 1]
         if draw_boundaries:
             end_mode = 15
