@@ -30,7 +30,7 @@ from typing import Dict, Any, Set
 
 import yaml
 
-from bag import BagProject
+from bag import BagProject, float_to_si_string
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateDB
 
@@ -71,13 +71,14 @@ class Test(LaygoBase):
             dictionary from parameter name to description.
         """
         return dict(
-            config='laygo configuration dictionary.'
+            config='laygo configuration dictionary.',
+            guard_ring_nf='number of guard ring fingers.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        self.set_row_types(['nch'], ['R0'], ['lvt'], True, 15)
+        self.set_row_types(['nch'], ['R0'], ['lvt'], True, 15, guard_ring_nf=self.params['guard_ring_nf'])
         self.add_laygo_primitive('fg2d', loc=(0, 0), nx=3, spx=1)
         self.add_laygo_primitive('fg2d', loc=(3, 0), split_s=True)
         self.add_laygo_primitive('stack2d', loc=(4, 0), nx=2, spx=1)
@@ -102,12 +103,25 @@ def make_tdb(prj, target_lib, specs):
 
 def generate(prj, specs):
     lib_name = 'AAAFOO'
-    cell_name = 'LAYGOBASE_TEST'
 
     params = specs['params']
+    lch_list = specs['swp_params']['lch']
+    gr_nf_list = specs['swp_params']['guard_ring_nf']
+
     temp_db = make_tdb(prj, lib_name, specs)
-    template = temp_db.new_template(params=params, temp_cls=Test, debug=True)
-    temp_db.instantiate_layout(prj, template, cell_name, debug=True)
+
+    temp_list = []
+    name_list = []
+    name_fmt = 'LAYGOBASE_L%s_gr%d'
+    for gr_nf in gr_nf_list:
+        params['guard_ring_nf'] = gr_nf
+        for lch in lch_list:
+            params['config']['lch'] = lch
+            temp_list.append(temp_db.new_template(params=params, temp_cls=Test, debug=False))
+            name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
+    print('creating layout')
+    temp_db.batch_layout(prj, temp_list, name_list)
+    print('done')
 
 
 if __name__ == '__main__':

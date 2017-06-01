@@ -36,6 +36,7 @@ def generate(prj, specs):
             params['guard_ring_nf'] = gr_nf
             temp_list.append(temp_db.new_template(params=params, temp_cls=DiffAmp, debug=False))
             name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
+    print('creating layout')
     temp_db.batch_layout(prj, temp_list, name_list)
     print('done')
 
