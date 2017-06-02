@@ -138,6 +138,7 @@ class CSAmp(AnalogBase):
                             hm_cur_width,  # type: int
                             guard_ring_nf,  # type: int
                             show_pins,  # type: bool
+                            **kwargs
                             ):
         # type: (...) -> None
 
