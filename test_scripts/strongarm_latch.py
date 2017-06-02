@@ -83,6 +83,10 @@ class StrongArmLatch(LaygoBase):
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
+
+        if not self.fg2d_s_short:
+            raise ValueError('This template current only works if source wires of fg2d are shorted.')
+
         threshold = self.params['threshold']
         draw_boundaries = self.params['draw_boundaries']
         num_pblk = self.params['num_pblk']
@@ -94,8 +98,8 @@ class StrongArmLatch(LaygoBase):
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
         num_g_tracks = [0, 1, 2, 2, 1, 0]
-        num_gb_tracks = [0, 1, 1, 1, 2, 0]
-        num_ds_tracks = [2, 0, 1, 1, 1, 2]
+        num_gb_tracks = [0, 1, 1, 2, 2, 0]
+        num_ds_tracks = [2, 0, 1, 0, 1, 2]
         if draw_boundaries:
             end_mode = 15
         else:
@@ -235,16 +239,18 @@ class StrongArmLatch(LaygoBase):
         # get output/mid horizontal track id
         hm_layer = self.conn_layer + 1
         nout_idx = self.get_track_index(3, 'gb', 0)
-        mid_idx = self.get_track_index(3, 'ds', 0)
-        mid_idx = min(mid_idx, nout_idx - 1)
+        mid_idx = self.get_track_index(3, 'gb', 1)
         nout_tid = TrackID(hm_layer, nout_idx)
         mid_tid = TrackID(hm_layer, mid_idx)
 
         # connect nmos mid
         nmidp = inn.get_all_port_pins('s') + invn_outp.get_all_port_pins('s')
         nmidn = inp.get_all_port_pins('s') + invn_outn.get_all_port_pins('s')
-        nmidp = self.connect_to_tracks(nmidp, mid_tid)
-        nmidn = self.connect_to_tracks(nmidn, mid_tid)
+        nmidp = self.connect_wires(nmidp)[0].to_warr_list()
+        nmidn = self.connect_wires(nmidn)[0].to_warr_list()
+        # exclude last wire to avoid horizontal line-end DRC error.
+        nmidp = self.connect_to_tracks(nmidp[:-1], mid_tid)
+        nmidn = self.connect_to_tracks(nmidn[1:], mid_tid)
 
         # connect pmos mid
         mid_tid = self.make_track_id(4, 'gb', 1)
@@ -283,6 +289,8 @@ class StrongArmLatch(LaygoBase):
         source_vdd = nw_tap.get_all_port_pins('VDD')
         source_vdd.extend(invp_outp.get_all_port_pins('s'))
         source_vdd.extend(invp_outn.get_all_port_pins('s'))
+        source_vdd.extend(rst_midp.get_all_port_pins('s'))
+        source_vdd.extend(rst_midn.get_all_port_pins('s'))
         drain_vdd = []
         for inst, _ in pdum_list:
             source_vdd.extend(inst.get_all_port_pins('s'))
