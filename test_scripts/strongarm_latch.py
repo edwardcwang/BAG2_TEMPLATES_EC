@@ -25,7 +25,6 @@
 
 """This script tests that AnalogBase draws rows of transistors properly."""
 
-
 from typing import Dict, Any, Set
 
 import yaml
@@ -97,9 +96,9 @@ class StrongArmLatch(LaygoBase):
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
-        num_g_tracks = [0, 1, 2, 2, 1, 0]
+        num_g_tracks = [0, 1, 2, 1, 2, 0]
         num_gb_tracks = [0, 1, 1, 2, 2, 0]
-        num_ds_tracks = [2, 0, 1, 0, 1, 2]
+        num_ds_tracks = [2, 0, 0, 0, 1, 2]
         if draw_boundaries:
             end_mode = 15
         else:
@@ -231,10 +230,13 @@ class StrongArmLatch(LaygoBase):
         in_tid = self.make_track_id(2, 'g', 1)
         inp_warr = self.connect_to_tracks(inp.get_all_port_pins('g'), in_tid)
         inn_warr = self.connect_to_tracks(inn.get_all_port_pins('g'), in_tid)
+        self.add_pin('inp', inp_warr, show=show_pins)
+        self.add_pin('inn', inn_warr, show=show_pins)
 
         # connect tail switch clk
-        tsw2 = self.make_track_id(2, 'g', 0)
-        clk_list.append(self.connect_to_tracks(tail_sw2.get_all_port_pins('g'), tsw2, min_len_mode=0))
+        tsw = self.make_track_id(2, 'g', 0)
+        tsw_list = tail_sw2.get_all_port_pins('g') + tail_sw1.get_all_port_pins('g')
+        clk_list.append(self.connect_to_tracks(tsw_list, tsw, min_len_mode=0))
 
         # get output/mid horizontal track id
         hm_layer = self.conn_layer + 1
@@ -254,8 +256,8 @@ class StrongArmLatch(LaygoBase):
 
         # connect pmos mid
         mid_tid = self.make_track_id(4, 'gb', 1)
-        pmidp = self.connect_to_tracks(rst_midp.get_all_port_pins('d'), mid_tid, min_len_mode=0)
-        pmidn = self.connect_to_tracks(rst_midn.get_all_port_pins('d'), mid_tid, min_len_mode=0)
+        pmidp = self.connect_to_tracks(rst_midp.get_all_port_pins('d'), mid_tid, min_len_mode=-1)
+        pmidn = self.connect_to_tracks(rst_midn.get_all_port_pins('d'), mid_tid, min_len_mode=1)
 
         # connect nmos output
         noutp = self.connect_to_tracks(invn_outp.get_all_port_pins('d'), nout_tid)
@@ -272,14 +274,11 @@ class StrongArmLatch(LaygoBase):
         pclk = []
         for inst in (rst_midp, rst_midn, rst_outp, rst_outn):
             pclk.extend(inst.get_all_port_pins('g'))
-        nclk = tail_sw1.get_all_port_pins('g')
-        pclk_tid = self.make_track_id(4, 'g', 0)
-        nclk_tid = self.make_track_id(3, 'g', 0)
+        pclk_tid = self.make_track_id(4, 'g', 1)
         clk_list.append(self.connect_to_tracks(pclk, pclk_tid))
-        clk_list.append(self.connect_to_tracks(nclk, nclk_tid, min_len_mode=0))
 
         # connect inverter gate
-        invg_tid = self.make_track_id(3, 'g', 1)
+        invg_tid = self.make_track_id(3, 'g', 0)
         invgp = invn_outp.get_all_port_pins('g') + invp_outp.get_all_port_pins('g')
         invgp = self.connect_to_tracks(invgp, invg_tid)
         invgn = invn_outn.get_all_port_pins('g') + invp_outn.get_all_port_pins('g')
@@ -302,6 +301,39 @@ class StrongArmLatch(LaygoBase):
         drain_vdd_warrs = self.connect_to_tracks(drain_vdd, drain_vdd_tid)
         self.add_pin('VDD', source_vdd_warrs, show=show_pins)
         self.add_pin('VDD', drain_vdd_warrs, show=show_pins)
+
+        # connect ym wires
+        wire_sp = 2
+        ym_layer = hm_layer + 1
+        warr_test = clk_list[0]
+        clk_idx = self.grid.coord_to_nearest_track(ym_layer, warr_test.middle, half_track=True)
+        clk_tid = TrackID(ym_layer, clk_idx)
+        clk_warr = self.connect_to_tracks(clk_list, clk_tid)
+        self.add_pin('clk', clk_warr, show=show_pins)
+
+        op_idx = self.grid.coord_to_nearest_track(ym_layer, poutp.middle, half_track=True)
+        op_idx = min(op_idx, clk_idx - wire_sp)
+        op_tid = TrackID(ym_layer, op_idx)
+        outp1 = self.connect_to_tracks([poutp, noutp], op_tid)
+        on_idx = clk_idx + (clk_idx - op_idx)
+        on_tid = TrackID(ym_layer, on_idx)
+        outn1 = self.connect_to_tracks([poutn, noutn], on_tid)
+        op_tid = TrackID(ym_layer, on_idx + wire_sp)
+        on_tid = TrackID(ym_layer, op_idx - wire_sp)
+        outp2 = self.connect_to_tracks(invgn, op_tid)
+        outn2 = self.connect_to_tracks(invgp, on_tid)
+
+        mn_tid = TrackID(ym_layer, on_idx + 2 * wire_sp)
+        mp_tid = TrackID(ym_layer, op_idx - 2 * wire_sp)
+        self.connect_to_tracks([nmidn, pmidn], mn_tid)
+        self.connect_to_tracks([nmidp, pmidp], mp_tid)
+
+        xm_layer = ym_layer + 1
+        om_idx = self.grid.coord_to_nearest_track(xm_layer, outp1.middle, half_track=True)
+        outp, outn = self.connect_differential_tracks([outp1, outp2], [outn1, outn2], xm_layer,
+                                                      om_idx + wire_sp / 2, om_idx - wire_sp / 2)
+        self.add_pin('outp', outp, show=show_pins)
+        self.add_pin('outn', outn, show=show_pins)
 
 
 def make_tdb(prj, target_lib, specs):
