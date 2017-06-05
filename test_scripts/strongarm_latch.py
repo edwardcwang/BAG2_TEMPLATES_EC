@@ -99,6 +99,8 @@ class StrongArmLatch(LaygoBase):
         num_g_tracks = [0, 1, 2, 1, 1, 0]
         num_gb_tracks = [0, 1, 0, 2, 2, 0]
         num_ds_tracks = [2, 0, 0, 0, 0, 2]
+        options = {}
+        row_kwargs = [{}, options, options, options, options, {}]
         if draw_boundaries:
             end_mode = 15
         else:
@@ -106,7 +108,8 @@ class StrongArmLatch(LaygoBase):
 
         # specify row types
         self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
-                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0)
+                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                           row_kwargs=row_kwargs)
 
         # determine total number of blocks
         tot_pblk = num_pblk + 2
