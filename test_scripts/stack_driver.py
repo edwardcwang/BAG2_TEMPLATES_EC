@@ -121,15 +121,11 @@ class StackDriver(LaygoBase):
 
         # pmos row
         row_idx = 2
-        for col_idx in range(tot_blk):
-            flip = col_idx % 2 == 1
-            self.add_laygo_primitive('dual_stack2s', loc=(col_idx, row_idx), flip=flip)
+        p_dict, vdd_warrs = self._draw_core_row(row_idx, 1, num_seg, num_dseg)
 
         # nmos row
         row_idx = 1
-        for col_idx in range(tot_blk):
-            flip = col_idx % 2 != 1
-            self.add_laygo_primitive('dual_stack2s', loc=(col_idx, row_idx), flip=flip)
+        n_dict, vss_warrs = self._draw_core_row(row_idx, 0, num_seg, num_dseg)
 
         # pwell tap
         row_idx = 0
@@ -142,11 +138,46 @@ class StackDriver(LaygoBase):
         self.draw_boundary_cells()
 
     def _draw_core_row(self, row_idx, parity, num_seg, num_dseg):
+        tot_seg = num_seg + num_dseg * 2
         blk_type = 'dual_stack2s'
-        # add total dummies
-        for dum_idx in range(num_dseg - 1):
-            self.add_laygo_primitive('dual_stack2s')
 
+        # add dummy wires
+        dum_warrs = []
+        for dum_idx in range(num_dseg - 1):
+            for seg_idx in (dum_idx, tot_seg - 1 - dum_idx):
+                col_idx = 2 * seg_idx
+                flip = col_idx % 2 == parity
+                inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=flip, join_mode=3)
+                dum_warrs.extend(inst.get_all_port_pins('g'))
+                dum_warrs.extend(inst.get_all_port_pins('gb'))
+                inst = self.add_laygo_primitive(blk_type, loc=(col_idx + 1, row_idx), flip=not flip, join_mode=3)
+                dum_warrs.extend(inst.get_all_port_pins('g'))
+                dum_warrs.extend(inst.get_all_port_pins('gb'))
+
+        # add half dummies
+        edge_join_mode = 1 << parity
+        dum_edge = ('g', 's') if edge_join_mode == 2 else ('gb', 'sb')
+        for idx, seg_idx in enumerate((num_dseg - 1, tot_seg - num_dseg)):
+            full_col = 2 * seg_idx + idx
+            half_col = 2 * seg_idx + (1 - idx)
+            inst = self.add_laygo_primitive(blk_type, loc=(full_col, row_idx),
+                                            flip=full_col % 2 == parity, join_mode=3)
+            dum_warrs.extend(inst.get_all_port_pins('g'))
+            dum_warrs.extend(inst.get_all_port_pins('gb'))
+            half_flip = half_col % 2 == parity
+            inst = self.add_laygo_primitive(blk_type, loc=(half_col, row_idx), flip=half_flip, join_mode=edge_join_mode)
+            dum_warrs.extend(inst.get_all_port_pins(dum_edge[0]))
+            dum_warrs.extend(inst.get_all_port_pins(dum_edge[1]))
+
+        # add core instances
+        core_warrs = {'g': [], 'gb': [], 's': [], 'sb': []}
+        for seg_idx in range(num_dseg, tot_seg - num_dseg):
+            for col_idx in (seg_idx * 2, seg_idx * 2 + 1):
+                inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=col_idx % 2 == parity)
+                for key, warrs in core_warrs.items():
+                    warrs.extend(inst.get_all_port_pins(key))
+
+        return core_warrs, dum_warrs
 
 
 def make_tdb(prj, target_lib, specs):
