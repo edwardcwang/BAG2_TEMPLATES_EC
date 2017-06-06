@@ -73,8 +73,8 @@ class StackDriver(LaygoBase):
             config='laygo configuration dictionary.',
             threshold='transistor threshold flavor.',
             draw_boundaries='True to draw boundaries.',
-            num_blk='number of nmos blocks, single-ended.',
-            num_dblk='number of dummy blocks on both sides.',
+            num_seg='number of driver segments.',
+            num_dseg='number of dummy segments.',
             show_pins='True to draw pin geometries.',
         )
 
@@ -87,9 +87,12 @@ class StackDriver(LaygoBase):
 
         threshold = self.params['threshold']
         draw_boundaries = self.params['draw_boundaries']
-        num_blk = self.params['num_blk']
-        num_dblk = self.params['num_dblk']
+        num_seg = self.params['num_seg']
+        num_dseg = self.params['num_dseg']
         show_pins = self.params['show_pins']
+
+        num_blk = num_seg * 2
+        num_dblk = num_dseg * 2
 
         row_list = ['ptap', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'R0', 'MX']
@@ -118,17 +121,15 @@ class StackDriver(LaygoBase):
 
         # pmos row
         row_idx = 2
-        self.add_laygo_primitive('dual_stack2sl', loc=(0, row_idx), end_mode=1)
-        self.add_laygo_primitive('dual_stack2sr', loc=(1, row_idx), nx=nx, spx=2)
-        self.add_laygo_primitive('dual_stack2sl', loc=(2, row_idx), nx=nx, spx=2)
-        self.add_laygo_primitive('dual_stack2sr', loc=(tot_blk - 1, row_idx), end_mode=2)
+        for col_idx in range(tot_blk):
+            flip = col_idx % 2 == 1
+            self.add_laygo_primitive('dual_stack2s', loc=(col_idx, row_idx), flip=flip)
 
         # nmos row
         row_idx = 1
-        self.add_laygo_primitive('dual_stack2sr', loc=(0, row_idx), end_mode=1)
-        self.add_laygo_primitive('dual_stack2sl', loc=(1, row_idx), nx=nx, spx=2)
-        self.add_laygo_primitive('dual_stack2sr', loc=(2, row_idx), nx=nx, spx=2)
-        self.add_laygo_primitive('dual_stack2sl', loc=(tot_blk - 1, row_idx), end_mode=2)
+        for col_idx in range(tot_blk):
+            flip = col_idx % 2 != 1
+            self.add_laygo_primitive('dual_stack2s', loc=(col_idx, row_idx), flip=flip)
 
         # pwell tap
         row_idx = 0
@@ -139,6 +140,13 @@ class StackDriver(LaygoBase):
         self.fill_space()
         # draw boundaries and get guard ring power rail tracks
         self.draw_boundary_cells()
+
+    def _draw_core_row(self, row_idx, parity, num_seg, num_dseg):
+        blk_type = 'dual_stack2s'
+        # add total dummies
+        for dum_idx in range(num_dseg - 1):
+            self.add_laygo_primitive('dual_stack2s')
+
 
 
 def make_tdb(prj, target_lib, specs):
