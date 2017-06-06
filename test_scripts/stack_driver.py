@@ -90,16 +90,27 @@ class StackDriver(LaygoBase):
         num_seg = self.params['num_seg']
         num_dseg = self.params['num_dseg']
         show_pins = self.params['show_pins']
+        sup_width = 2  # width of supply/io wires
 
+        # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
         num_dblk = num_dseg * 2
 
         row_list = ['ptap', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'R0', 'MX']
         thres_list = [threshold] * 4
-        num_g_tracks = [0, 1, 1, 0]
-        num_gb_tracks = [0, 1, 1, 0]
-        num_ds_tracks = [2, 1, 1, 2]
+
+        # compute number of tracks
+        # note: because we're using thick wires, we need to compute space needed to
+        # satisfy DRC rules
+        hm_layer = self.conn_layer + 1
+        nsp = self.grid.get_num_space_tracks(hm_layer, sup_width)
+        num_g_sp = 1 + nsp + sup_width // 2
+        num_g_tracks = [0, nsp + 1, num_g_sp, 0]
+        num_gb_tracks = [0, num_g_sp, 1 + nsp, 0]
+        num_ds_tracks = [sup_width, 1, 1, sup_width]
+
+        # to draw special stack driver primitive, we need to enable dual_gate options.
         options = dict(dual_gate=True, ds_low_res=True)
         row_kwargs = [{}, options, options, {}]
         if draw_boundaries:
@@ -114,20 +125,19 @@ class StackDriver(LaygoBase):
 
         # determine total number of blocks
         tot_blk = 2 * num_dblk + num_blk
-        nx = (tot_blk - 2) // 2
-        # nwell tap
+        # draw nwell tap
         row_idx = 3
         nw_tap = self.add_laygo_primitive('sub', loc=(0, row_idx), nx=tot_blk, spx=1)
 
-        # pmos row
+        # draw pmos row
         row_idx = 2
         p_dict, vdd_warrs = self._draw_core_row(row_idx, 1, num_seg, num_dseg)
 
-        # nmos row
+        # draw nmos row
         row_idx = 1
         n_dict, vss_warrs = self._draw_core_row(row_idx, 0, num_seg, num_dseg)
 
-        # pwell tap
+        # draw pwell tap
         row_idx = 0
         pw_tap = self.add_laygo_primitive('sub', loc=(0, row_idx), nx=tot_blk, spx=1)
 
@@ -137,7 +147,54 @@ class StackDriver(LaygoBase):
         # draw boundaries and get guard ring power rail tracks
         self.draw_boundary_cells()
 
+        # connect supplies
+        vdd_warrs.extend(p_dict['s'])
+        vdd_warrs.extend(nw_tap.get_all_port_pins('VDD'))
+        vss_warrs.extend(n_dict['sb'])
+        vss_warrs.extend(pw_tap.get_all_port_pins('VSS'))
+        for name, warrs, row_idx in (('VDD', vdd_warrs, 3), ('VSS', vss_warrs, 0)):
+            tid = self.make_track_id(row_idx, 'ds', (sup_width - 1) / 2, width=sup_width)
+            pin = self.connect_to_tracks(warrs, tid)
+            self.add_pin(name, pin, show=show_pins)
+
+        # connect nmos/pmos gates
+        for name, port, port_dict, row_idx, tr in (('nbias', 'g', n_dict, 1, nsp), ('nin', 'gb', n_dict, 1, 0),
+                                                   ('pbias', 'gb', p_dict, 2, 0), ('pin', 'g', p_dict, 2, num_g_sp - 1)):
+            tid = self.make_track_id(row_idx, port, tr)
+            pin = self.connect_to_tracks(port_dict[port], tid)
+            self.add_pin(name, pin, show=show_pins)
+
+        # connect output
+        ngb_idx = self.get_track_index(1, 'gb', 0)
+        pgb_idx = self.get_track_index(2, 'g', num_g_sp - 1)
+        mid_idx = int(round(ngb_idx + pgb_idx)) / 2
+        tid = TrackID(self.conn_layer + 1, mid_idx, width=sup_width)
+        pin = self.connect_to_tracks(p_dict['sb'] + n_dict['s'], tid)
+        self.add_pin('out', pin, show=show_pins)
+
     def _draw_core_row(self, row_idx, parity, num_seg, num_dseg):
+        """Draw a core transistor row.
+
+        each row has num_dseg dummy segments on both sides, and num_seg actual transistors in the middle.
+        We use the special dual_stack2s transistor primitive, which is designed especially for stacked
+        driver layout.
+
+        A dual_stack2s primitive has gate connections on both top and bottom of the transistor.
+        the left gate is connected to the bottom and is called 'g', the right gate is connected to the top
+        and is called 'gb'.  's' and 'sb' are the drain/source junction opposite to 'g' and 'gb', respectively.
+
+        for the outer num_dseg - 1 dummy segments, we can short g/s/gb/sb together, as they will all be tied
+        to the supply.  We do so by specifying the join_mode flag, which is a 2-bit integer.  the LSB of
+        join_mode controls whether to short g and s together, and the MSB controls whether to short gb and
+        sb together.
+
+        for the dummy segment adjacent to the core segment, we cannot short the inner-most gate/source wire,
+        because that will short the ports of the core transistor.  Therefore we need special math to compute
+        the correct value of the join mode flag.
+
+        the parity parameter swaps the order of g and gb wires.  This makes it so we can directly short
+        the output of pmos and nmos together.
+        """
         tot_seg = num_seg + num_dseg * 2
         blk_type = 'dual_stack2s'
 
