@@ -75,6 +75,7 @@ class StackDriver(LaygoBase):
             draw_boundaries='True to draw boundaries.',
             num_seg='number of driver segments.',
             num_dseg='number of dummy segments.',
+            sup_width='width of supply and output wire.',
             show_pins='True to draw pin geometries.',
         )
 
@@ -90,7 +91,7 @@ class StackDriver(LaygoBase):
         num_seg = self.params['num_seg']
         num_dseg = self.params['num_dseg']
         show_pins = self.params['show_pins']
-        sup_width = 2  # width of supply/io wires
+        sup_width = self.params['sup_width']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
