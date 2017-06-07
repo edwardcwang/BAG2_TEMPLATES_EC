@@ -119,7 +119,8 @@ class StrongArmLatch(LaygoBase):
         tot_pblk = num_pblk + 2
         tot_nblk = num_nblk
         tot_blk_single = max(tot_pblk, tot_nblk)
-        tot_blk = 1 + 2 * (tot_blk_single + num_dblk) + num_sp_blk + 2 * num_nand_blk
+        tot_nand_blk = num_sp_blk + 2 * num_nand_blk
+        tot_blk = 1 + 2 * (tot_blk_single + num_dblk) + tot_nand_blk
 
         colp = num_dblk + tot_blk_single - tot_pblk
         coln = num_dblk + tot_blk_single - tot_nblk
@@ -196,7 +197,7 @@ class StrongArmLatch(LaygoBase):
         cur_col += num_nblk
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), -1))
         cur_col += 1
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1 + tot_nand_blk, spx=1), 0))
 
         # nmos tail row
         cur_col, row_idx = 0, 1
@@ -208,7 +209,7 @@ class StrongArmLatch(LaygoBase):
         cur_col += 1
         tailp = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=num_nblk, spx=1)
         cur_col += num_nblk
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln, spx=1), 0))
+        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln + tot_nand_blk, spx=1), 0))
 
         # pwell tap
         cur_col, row_idx = 0, 0
