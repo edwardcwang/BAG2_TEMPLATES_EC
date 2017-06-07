@@ -30,7 +30,7 @@ from typing import Dict, Any, Set
 import yaml
 
 from bag import BagProject
-from bag.layout.routing import RoutingGrid, TrackID
+from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateDB
 
 from abs_templates_ec.laygo.core import LaygoBase
@@ -132,7 +132,7 @@ class NAND(LaygoBase):
         pw_tap = self.add_laygo_primitive('sub', loc=(0, row_idx), nx=num_blk, spx=1)
 
         # compute overall block size
-        self.set_laygo_size(num_col=num_blk)
+        self.set_laygo_size(num_col=num_blk + 4)
         self.fill_space()
         # draw boundaries and get guard ring power rail tracks
         self.draw_boundary_cells()
