@@ -97,12 +97,12 @@ class NAND(LaygoBase):
         # note: because we're using thick wires, we need to compute space needed to
         # satisfy DRC rules
         hm_layer = self.conn_layer + 1
-        num_g_tracks = [0, 1, 1, 0]
-        num_gb_tracks = [0, 1, 1, 0]
-        num_ds_tracks = [1, 0, 0, 1]
+        num_g_tracks = [0, 0, 0, 0]
+        num_gb_tracks = [0, 0, 0, 0]
+        num_ds_tracks = [0, 0, 0, 0]
 
         # to draw special stack driver primitive, we need to enable dual_gate options.
-        options = dict()
+        options = dict(dual_gate=True)
         row_kwargs = [{}, options, options, {}]
         if draw_boundaries:
             end_mode = 15
@@ -121,11 +121,11 @@ class NAND(LaygoBase):
 
         # draw pmos row
         row_idx = 2
-        pmos = self.add_laygo_primitive('fg2s', loc=(0, row_idx), nx=num_blk, spx=1)
+        pmos = self.add_laygo_primitive('dual_stack2s', loc=(0, row_idx), nx=num_blk, spx=1)
 
         # draw nmos row
         row_idx = 1
-        nmos = self.add_laygo_primitive('stack2s', loc=(0, row_idx), nx=num_blk, spx=1)
+        nmos = self.add_laygo_primitive('dual_stack2s', loc=(0, row_idx), nx=num_blk, spx=1)
 
         # draw pwell tap
         row_idx = 0
