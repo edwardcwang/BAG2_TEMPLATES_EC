@@ -75,7 +75,8 @@ class StrongArmLatch(LaygoBase):
             draw_boundaries='True to draw boundaries.',
             num_nblk='number of nmos blocks, single-ended.',
             num_pblk='number of pmos blocks, single-ended.',
-            num_dblk='number of dummy blocks on both sides.',
+            num_nand_blk='number of nand blocks.',
+            num_dblk='number of dummy blocks on both sides of latch.',
             show_pins='True to draw pin geometries.',
         )
 
@@ -91,6 +92,7 @@ class StrongArmLatch(LaygoBase):
         num_pblk = self.params['num_pblk']
         num_nblk = self.params['num_nblk']
         num_dblk = self.params['num_dblk']
+        num_nand_blk = self.params['num_nand_blk']
         show_pins = self.params['show_pins']
 
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
@@ -112,12 +114,15 @@ class StrongArmLatch(LaygoBase):
                            row_kwargs=row_kwargs)
 
         # determine total number of blocks
+        num_sp_blk = 2
+
         tot_pblk = num_pblk + 2
         tot_nblk = num_nblk
-        tot_blk_max = max(tot_pblk, tot_nblk)
-        tot_blk = 1 + 2 * (tot_blk_max + num_dblk)
-        colp = num_dblk + tot_blk_max - tot_pblk
-        coln = num_dblk + tot_blk_max - tot_nblk
+        tot_blk_single = max(tot_pblk, tot_nblk)
+        tot_blk = 1 + 2 * (tot_blk_single + num_dblk) + num_sp_blk + 2 * num_nand_blk
+
+        colp = num_dblk + tot_blk_single - tot_pblk
+        coln = num_dblk + tot_blk_single - tot_nblk
 
         # add blocks
         pdum_list, ndum_list = [], []
@@ -146,6 +151,13 @@ class StrongArmLatch(LaygoBase):
         rst_midn = self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx))
         cur_col += 1
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
+        cur_col += colp + num_sp_blk
+        nandpl_list, nandpr_list = [], []
+        for nandp_list in (nandpl_list, nandpr_list):
+            for idx in range(num_nand_blk):
+                inst = self.add_laygo_primitive('fg2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
+                nandp_list.append(inst)
+            cur_col += num_nand_blk
 
         # nmos inverter row
         cur_col, row_idx = 0, 3
@@ -162,6 +174,13 @@ class StrongArmLatch(LaygoBase):
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), -1))
         cur_col += 1
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
+        cur_col += coln - 1 + num_sp_blk
+        nandnl_list, nandnr_list = [], []
+        for nandn_list in (nandnl_list, nandnr_list):
+            for idx in range(num_nand_blk):
+                inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
+                nandn_list.append(inst)
+            cur_col += num_nand_blk
 
         # nmos input row
         cur_col, row_idx = 0, 2
