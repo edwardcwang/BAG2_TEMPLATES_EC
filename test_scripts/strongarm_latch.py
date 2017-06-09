@@ -98,6 +98,10 @@ class StrongArmLatch(LaygoBase):
         wire_nand_sp = 2
         nand_sp_blk = 1
 
+        # error checking
+        if num_nand_blk % 2 != 0 or num_nand_blk <= 0:
+            raise ValueError('num_nand_blk must be even and positive.')
+
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
@@ -149,7 +153,7 @@ class StrongArmLatch(LaygoBase):
         nand_ip_x = self.grid.track_to_coord(ym_layer, nand_ip_idx, unit_mode=True)
         nand_col, _ = laygo_info.coord_to_nearest_col(nand_ip_x, ds_type='S', mode=1, unit_mode=True)
         num_sp_blk = nand_col - tot_latch_blk
-        tot_nand_blk = num_sp_blk + 2 * num_nand_blk + 1
+        tot_nand_blk = num_sp_blk + 2 * num_nand_blk + nand_sp_blk
         tot_blk = tot_latch_blk + tot_nand_blk
 
         # add blocks
@@ -181,11 +185,15 @@ class StrongArmLatch(LaygoBase):
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
         cur_col += colp + num_sp_blk
         nandpl_list, nandpr_list = [], []
-        for nandp_list in (nandpl_list, nandpr_list):
+        for nand_blk_idx, nandp_list in enumerate([nandpl_list, nandpr_list]):
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('fg2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
                 nandp_list.append(inst)
-            cur_col += num_nand_blk + nand_sp_blk
+            cur_col += num_nand_blk
+            if nand_blk_idx == 0:
+                # add space block, cut g/gb
+                self.add_laygo_space(3, num_blk=nand_sp_blk, loc=(cur_col, row_idx), sep_mode=3)
+            cur_col += nand_sp_blk
 
         # nmos inverter row
         cur_col, row_idx = 0, 3
@@ -204,11 +212,15 @@ class StrongArmLatch(LaygoBase):
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
         cur_col += coln - 1 + num_sp_blk
         nandnl_list, nandnr_list = [], []
-        for nandn_list in (nandnl_list, nandnr_list):
+        for nand_blk_idx, nandn_list in enumerate([nandnl_list, nandnr_list]):
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
                 nandn_list.append(inst)
-            cur_col += num_nand_blk + nand_sp_blk
+            cur_col += num_nand_blk
+            if nand_blk_idx == 0:
+                # add space block, cut g/gb
+                self.add_laygo_space(3, num_blk=nand_sp_blk, loc=(cur_col, row_idx), sep_mode=3)
+            cur_col += nand_sp_blk
 
         # nmos input row
         cur_col, row_idx = 0, 2
