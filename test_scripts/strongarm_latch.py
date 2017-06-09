@@ -105,7 +105,7 @@ class StrongArmLatch(LaygoBase):
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
-        num_g_tracks = [0, 1, 2, 1, 1, 0]
+        num_g_tracks = [0, 1, 2, 2, 2, 0]
         num_gb_tracks = [0, 1, 0, 2, 2, 0]
         num_ds_tracks = [2, 0, 0, 0, 0, 2]
         options = {}
@@ -148,11 +148,11 @@ class StrongArmLatch(LaygoBase):
                                                   mode=1, unit_mode=True)
         op_idx = min(op_idx, clk_idx - wire_sp)
         on_idx = clk_idx + (clk_idx - op_idx)
-        nand_ip_idx = on_idx + 2 * wire_sp + wire_nand_sp
-        # based on nand inp track index, compute nand gate column index.
-        nand_ip_x = self.grid.track_to_coord(ym_layer, nand_ip_idx, unit_mode=True)
-        nand_col, _ = laygo_info.coord_to_nearest_col(nand_ip_x, ds_type='S', mode=1, unit_mode=True)
-        num_sp_blk = nand_col - tot_latch_blk
+        nand_op_idx = on_idx + 3 * wire_sp + wire_nand_sp
+        # based on nand outp track index, compute nand gate column index.
+        nand_op_x = self.grid.track_to_coord(ym_layer, nand_op_idx, unit_mode=True)
+        nand_col, _ = laygo_info.coord_to_nearest_col(nand_op_x, ds_type='D', mode=1, unit_mode=True)
+        num_sp_blk = nand_col - tot_latch_blk - num_nand_blk // 2
         tot_nand_blk = num_sp_blk + 2 * num_nand_blk + nand_sp_blk
         tot_blk = tot_latch_blk + tot_nand_blk
 
@@ -184,11 +184,14 @@ class StrongArmLatch(LaygoBase):
         cur_col += 1
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
         cur_col += colp + num_sp_blk
-        nandpl_list, nandpr_list = [], []
-        for nand_blk_idx, nandp_list in enumerate([nandpl_list, nandpr_list]):
+        nandpl, nandpr = {'gb': [], 'gt': [], 'd': [], 's': []}, {'gb': [], 'gt': [], 'd': [], 's': []}
+        for nand_blk_idx, nand_dict in enumerate([nandpl, nandpr]):
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('fg2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
-                nandp_list.append(inst)
+                nand_dict['gb'].extend(inst.get_all_port_pins('g0'))
+                nand_dict['gt'].extend(inst.get_all_port_pins('g1'))
+                nand_dict['d'].extend(inst.get_all_port_pins('d'))
+                nand_dict['s'].extend(inst.get_all_port_pins('s'))
             cur_col += num_nand_blk
             if nand_blk_idx == 0:
                 # add space block, cut g/gb
@@ -211,11 +214,15 @@ class StrongArmLatch(LaygoBase):
         cur_col += 1
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
         cur_col += coln - 1 + num_sp_blk
-        nandnl_list, nandnr_list = [], []
-        for nand_blk_idx, nandn_list in enumerate([nandnl_list, nandnr_list]):
+        nandnl, nandnr = {'gb': [], 'gt': [], 'd': [], 's': []}, {'gb': [], 'gt': [], 'd': [], 's': []}
+        for nand_blk_idx, nand_dict in enumerate([nandnl, nandnr]):
             for idx in range(num_nand_blk):
-                inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
-                nandn_list.append(inst)
+                flip = idx % 2 == 1
+                inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=flip)
+                nand_dict['gb'].extend(inst.get_all_port_pins('g0'))
+                nand_dict['gt'].extend(inst.get_all_port_pins('g1'))
+                nand_dict['d'].extend(inst.get_all_port_pins('d'))
+                nand_dict['s'].extend(inst.get_all_port_pins('s'))
             cur_col += num_nand_blk
             if nand_blk_idx == 0:
                 # add space block, cut g/gb
@@ -263,6 +270,8 @@ class StrongArmLatch(LaygoBase):
 
         # connect ground
         source_vss = pw_tap.get_all_port_pins('VSS') + tailn.get_all_port_pins('s') + tailp.get_all_port_pins('s')
+        source_vss.extend(nandnl['s'])
+        source_vss.extend(nandnr['s'])
         drain_vss = []
         for inst, mode in ndum_list:
             if mode == 0:
@@ -340,7 +349,7 @@ class StrongArmLatch(LaygoBase):
         clk_list.append(self.connect_to_tracks(pclk, pclk_tid))
 
         # connect inverter gate
-        invg_tid = self.make_track_id(3, 'g', 0)
+        invg_tid = self.make_track_id(3, 'g', 1)
         invgp = invn_outp.get_all_port_pins('g') + invp_outp.get_all_port_pins('g')
         invgp = self.connect_to_tracks(invgp, invg_tid)
         invgn = invn_outn.get_all_port_pins('g') + invp_outn.get_all_port_pins('g')
@@ -352,6 +361,8 @@ class StrongArmLatch(LaygoBase):
         source_vdd.extend(invp_outn.get_all_port_pins('s'))
         source_vdd.extend(rst_midp.get_all_port_pins('s'))
         source_vdd.extend(rst_midn.get_all_port_pins('s'))
+        source_vdd.extend(nandpl['s'])
+        source_vdd.extend(nandpr['s'])
         drain_vdd = []
         for inst, _ in pdum_list:
             source_vdd.extend(inst.get_all_port_pins('s'))
@@ -363,6 +374,43 @@ class StrongArmLatch(LaygoBase):
         drain_vdd_warrs = self.connect_to_tracks(drain_vdd, drain_vdd_tid)
         self.add_pin('VDD', source_vdd_warrs, show=show_pins)
         self.add_pin('VDD', drain_vdd_warrs, show=show_pins)
+
+        # connect nand
+        nand_gbl_tid = self.make_track_id(3, 'g', 1)
+        nand_gtl_id = self.get_track_index(3, 'g', 0)
+        nand_gtr_id = self.get_track_index(4, 'g', 0)
+        nand_gbr_tid = self.make_track_id(4, 'g', 1)
+        nand_nmos_out_tid = self.make_track_id(3, 'gb', 0)
+        nand_outnl = self.connect_to_tracks(nandnl['d'], nand_nmos_out_tid, min_len_mode=0)
+        nand_outnr = self.connect_to_tracks(nandnr['d'], nand_nmos_out_tid, min_len_mode=0)
+
+        nand_gtl = nandnl['gt'] + nandpl['gt']
+        nand_gtl.extend(nandpr['d'])
+        nand_gtr = nandnr['gt'] + nandpr['gt']
+        nand_gtr.extend(nandpl['d'])
+        nand_outpl, nand_outpr = self.connect_differential_tracks(nand_gtr, nand_gtl, hm_layer,
+                                                                  nand_gtr_id, nand_gtl_id)
+
+        nand_gbl = self.connect_to_tracks(nandnl['gb'] + nandpl['gb'], nand_gbl_tid)
+        nand_gbr = self.connect_to_tracks(nandnr['gb'] + nandpr['gb'], nand_gbr_tid)
+
+        # connect nand ym wires
+        nand_outl = [nand_outnl, nand_outpl]
+        nand_outr = [nand_outnr, nand_outpr]
+        nand_outl_id = self.grid.coord_to_nearest_track(ym_layer, nand_outnl.middle, half_track=True, mode=1)
+        nand_outr_id = self.grid.coord_to_nearest_track(ym_layer, nand_outnr.middle, half_track=True, mode=-1)
+        nand_gbr_yt = self.grid.get_wire_bounds(hm_layer, nand_gbr_tid.base_index, unit_mode=True)[1]
+        ym_via_ext = self.grid.get_via_extensions(hm_layer, 1, 1, unit_mode=True)[1]
+        out_upper = nand_gbr_yt + ym_via_ext
+        nand_outl, nand_outr = self.connect_differential_tracks(nand_outl, nand_outr, ym_layer,
+                                                                nand_outl_id, nand_outr_id, track_upper=out_upper,
+                                                                unit_mode=True)
+        self.add_pin('outp', nand_outl, show=show_pins)
+        self.add_pin('outn', nand_outr, show=show_pins)
+
+        nand_inn_tid = nand_outl_id - wire_sp
+        nand_inp_tid = nand_outr_id + wire_sp
+        self.connect_differential_tracks(nand_gbl, nand_gbr, ym_layer, nand_inn_tid, nand_inp_tid)
 
         # connect ym wires
         clk_tid = TrackID(ym_layer, clk_idx)
@@ -387,8 +435,9 @@ class StrongArmLatch(LaygoBase):
         om_idx = self.grid.coord_to_nearest_track(xm_layer, outp1.middle, half_track=True)
         outp, outn = self.connect_differential_tracks([outp1, outp2], [outn1, outn2], xm_layer,
                                                       om_idx + wire_sp / 2, om_idx - wire_sp / 2)
-        self.add_pin('outp', outp, show=show_pins)
-        self.add_pin('outn', outn, show=show_pins)
+        self.add_pin('midp', outp, show=show_pins)
+        self.add_pin('midn', outn, show=show_pins)
+        self.connect_differential_tracks(outn, outp, ym_layer, nand_inn_tid, nand_inp_tid)
 
 
 def make_tdb(prj, target_lib, specs):
