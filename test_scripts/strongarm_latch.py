@@ -94,6 +94,9 @@ class StrongArmLatch(LaygoBase):
         num_dblk = self.params['num_dblk']
         num_nand_blk = self.params['num_nand_blk']
         show_pins = self.params['show_pins']
+        wire_sp = 2
+        wire_nand_sp = 2
+        nand_sp_blk = 1
 
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
@@ -114,16 +117,40 @@ class StrongArmLatch(LaygoBase):
                            row_kwargs=row_kwargs)
 
         # determine total number of blocks
-        num_sp_blk = 2
-
         tot_pblk = num_pblk + 2
         tot_nblk = num_nblk
         tot_blk_single = max(tot_pblk, tot_nblk)
-        tot_nand_blk = num_sp_blk + 2 * num_nand_blk
-        tot_blk = 1 + 2 * (tot_blk_single + num_dblk) + tot_nand_blk
+        tot_latch_blk = 1 + 2 * (tot_blk_single + num_dblk)
 
         colp = num_dblk + tot_blk_single - tot_pblk
         coln = num_dblk + tot_blk_single - tot_nblk
+
+        laygo_info = self.laygo_info
+        # compute NAND gate location
+        # step 1: compute ym wire indices
+        x_latch_mid = laygo_info.col_to_coord(coln + num_nblk, 'd', unit_mode=True)
+        hm_layer = self.conn_layer + 1
+        ym_layer = hm_layer + 1
+        clk_idx = self.grid.coord_to_nearest_track(ym_layer, x_latch_mid, half_track=True,
+                                                   mode=1, unit_mode=True)
+        if num_nblk % 2 == 1:
+            ds_type = 'd'
+            outp_mid_col = coln + (num_nblk - 1) // 2
+        else:
+            ds_type = 's'
+            outp_mid_col = coln + num_nblk // 2
+        x_outp_mid = laygo_info.col_to_coord(outp_mid_col, ds_type, unit_mode=True)
+        op_idx = self.grid.coord_to_nearest_track(ym_layer, x_outp_mid, half_track=True,
+                                                  mode=1, unit_mode=True)
+        op_idx = min(op_idx, clk_idx - wire_sp)
+        on_idx = clk_idx + (clk_idx - op_idx)
+        nand_ip_idx = on_idx + 2 * wire_sp + wire_nand_sp
+        # based on nand inp track index, compute nand gate column index.
+        nand_ip_x = self.grid.track_to_coord(ym_layer, nand_ip_idx, unit_mode=True)
+        nand_col, _ = laygo_info.coord_to_nearest_col(nand_ip_x, ds_type='S', mode=1, unit_mode=True)
+        num_sp_blk = nand_col - tot_latch_blk
+        tot_nand_blk = num_sp_blk + 2 * num_nand_blk + 1
+        tot_blk = tot_latch_blk + tot_nand_blk
 
         # add blocks
         pdum_list, ndum_list = [], []
@@ -158,7 +185,7 @@ class StrongArmLatch(LaygoBase):
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('fg2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
                 nandp_list.append(inst)
-            cur_col += num_nand_blk
+            cur_col += num_nand_blk + nand_sp_blk
 
         # nmos inverter row
         cur_col, row_idx = 0, 3
@@ -181,7 +208,7 @@ class StrongArmLatch(LaygoBase):
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
                 nandn_list.append(inst)
-            cur_col += num_nand_blk
+            cur_col += num_nand_blk + nand_sp_blk
 
         # nmos input row
         cur_col, row_idx = 0, 2
@@ -197,7 +224,8 @@ class StrongArmLatch(LaygoBase):
         cur_col += num_nblk
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), split_s=True), -1))
         cur_col += 1
-        ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1 + tot_nand_blk, spx=1), 0))
+        ndum_list.append(
+            (self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1 + tot_nand_blk, spx=1), 0))
 
         # nmos tail row
         cur_col, row_idx = 0, 1
@@ -262,7 +290,6 @@ class StrongArmLatch(LaygoBase):
         clk_list.append(self.connect_to_tracks(tsw_list, tsw, min_len_mode=0))
 
         # get output/mid horizontal track id
-        hm_layer = self.conn_layer + 1
         nout_idx = self.get_track_index(3, 'gb', 0)
         mid_idx = self.get_track_index(3, 'gb', 1)
         nout_tid = TrackID(hm_layer, nout_idx)
@@ -326,19 +353,12 @@ class StrongArmLatch(LaygoBase):
         self.add_pin('VDD', drain_vdd_warrs, show=show_pins)
 
         # connect ym wires
-        wire_sp = 2
-        ym_layer = hm_layer + 1
-        warr_test = clk_list[0]
-        clk_idx = self.grid.coord_to_nearest_track(ym_layer, warr_test.middle, half_track=True)
         clk_tid = TrackID(ym_layer, clk_idx)
         clk_warr = self.connect_to_tracks(clk_list, clk_tid)
         self.add_pin('clk', clk_warr, show=show_pins)
 
-        op_idx = self.grid.coord_to_nearest_track(ym_layer, poutp.middle, half_track=True)
-        op_idx = min(op_idx, clk_idx - wire_sp)
         op_tid = TrackID(ym_layer, op_idx)
         outp1 = self.connect_to_tracks([poutp, noutp], op_tid)
-        on_idx = clk_idx + (clk_idx - op_idx)
         on_tid = TrackID(ym_layer, on_idx)
         outn1 = self.connect_to_tracks([poutn, noutn], on_tid)
         op_tid = TrackID(ym_layer, on_idx + wire_sp)
