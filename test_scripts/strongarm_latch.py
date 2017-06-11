@@ -185,18 +185,14 @@ class StrongArmLatch(LaygoBase):
         pdum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=colp, spx=1), 0))
         cur_col += colp + num_sp_blk
         nandpl, nandpr = {'gb': [], 'gt': [], 'd': [], 's': []}, {'gb': [], 'gt': [], 'd': [], 's': []}
-        for nand_blk_idx, nand_dict in enumerate([nandpl, nandpr]):
+        for nand_dict in [nandpl, nandpr]:
             for idx in range(num_nand_blk):
                 inst = self.add_laygo_primitive('fg2s', loc=(cur_col + idx, row_idx), flip=idx % 2 == 1)
                 nand_dict['gb'].extend(inst.get_all_port_pins('g0'))
                 nand_dict['gt'].extend(inst.get_all_port_pins('g1'))
                 nand_dict['d'].extend(inst.get_all_port_pins('d'))
                 nand_dict['s'].extend(inst.get_all_port_pins('s'))
-            cur_col += num_nand_blk
-            if nand_blk_idx == 0:
-                # add space block, cut g/gb
-                self.add_laygo_space(3, num_blk=nand_sp_blk, loc=(cur_col, row_idx), sep_mode=3)
-            cur_col += nand_sp_blk
+            cur_col += num_nand_blk + nand_sp_blk
 
         # nmos inverter row
         cur_col, row_idx = 0, 3
@@ -215,7 +211,7 @@ class StrongArmLatch(LaygoBase):
         ndum_list.append((self.add_laygo_primitive(blk_type, loc=(cur_col, row_idx), nx=coln - 1, spx=1), 0))
         cur_col += coln - 1 + num_sp_blk
         nandnl, nandnr = {'gb': [], 'gt': [], 'd': [], 's': []}, {'gb': [], 'gt': [], 'd': [], 's': []}
-        for nand_blk_idx, nand_dict in enumerate([nandnl, nandnr]):
+        for nand_dict in [nandnl, nandnr]:
             for idx in range(num_nand_blk):
                 flip = idx % 2 == 1
                 inst = self.add_laygo_primitive('stack2s', loc=(cur_col + idx, row_idx), flip=flip)
@@ -223,11 +219,7 @@ class StrongArmLatch(LaygoBase):
                 nand_dict['gt'].extend(inst.get_all_port_pins('g1'))
                 nand_dict['d'].extend(inst.get_all_port_pins('d'))
                 nand_dict['s'].extend(inst.get_all_port_pins('s'))
-            cur_col += num_nand_blk
-            if nand_blk_idx == 0:
-                # add space block, cut g/gb
-                self.add_laygo_space(3, num_blk=nand_sp_blk, loc=(cur_col, row_idx), sep_mode=3)
-            cur_col += nand_sp_blk
+            cur_col += num_nand_blk + nand_sp_blk
 
         # nmos input row
         cur_col, row_idx = 0, 2
