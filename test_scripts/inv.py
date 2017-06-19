@@ -131,7 +131,7 @@ def generate(prj, specs):
     temp_db = make_tdb(prj, lib_name, specs)
 
     template = temp_db.new_template(params=params, temp_cls=INV, debug=False)
-    name = 'NAND_GATE'
+    name = 'INV_TEST'
     print('create layout')
     temp_db.batch_layout(prj, [template], [name])
     print('done')
