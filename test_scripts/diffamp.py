@@ -53,6 +53,8 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    generate(bprj, block_specs)
