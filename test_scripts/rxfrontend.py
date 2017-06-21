@@ -21,8 +21,6 @@ def make_tdb(prj, target_lib, specs):
 
 
 def rxcore(prj, specs):
-    cell_name = 'rxcore_ffe1_dfe4_v2'
-
     temp_db = make_tdb(prj, impl_lib, specs)
     rxcore_params = specs['rxcore_params']
     rxcore_layout_params = specs['rxcore_layout_params']
@@ -41,9 +39,6 @@ def rxcore(prj, specs):
 
 
 def rxcore_sch(prj, sch_params):
-    lib_name = 'serdes_bm_templates'
-    cell_name = 'rxcore_ffe1_dfe4_v2'
-
     print('creating design module')
     dsn = prj.create_design_module(lib_name, cell_name)
     print('designing schematics')
@@ -56,6 +51,8 @@ def rxcore_sch(prj, sch_params):
 
 if __name__ == '__main__':
 
+    lib_name = 'serdes_bm_templates'
+    cell_name = 'rxcore_ffe1_dfe4_v2'
     impl_lib = 'AAAFOO'
 
     with open('test_specs/rxfrontend.yaml', 'r') as f:
@@ -73,3 +70,17 @@ if __name__ == '__main__':
     rxcore_sch_params = rxcore(bprj, block_specs)
     rxcore_sch(bprj, rxcore_sch_params)
     # rxfrontend(bprj, tdb)
+
+    """
+    print('running lvs')
+    lvs_passed, lvs_log = bprj.run_lvs(impl_lib, cell_name)
+    if not lvs_passed:
+        raise Exception('oops lvs died.  See LVS log file %s' % lvs_log)
+    print('lvs passed')
+
+    print('running rcx')
+    rcx_passed, rcx_log = bprj.run_rcx(impl_lib, cell_name)
+    if not rcx_passed:
+        raise Exception('oops rcx died.  See RCX log file %s' % rcx_log)
+    print('rcx passed')
+    """
