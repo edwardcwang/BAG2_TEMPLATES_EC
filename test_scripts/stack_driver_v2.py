@@ -108,7 +108,7 @@ class StackDriver(LaygoBase):
         num_ds_tracks = [1, 1]
 
         # to draw special stack driver primitive, we need to enable dual_gate options.
-        options = dict(ds_low_res=False)
+        options = dict(ds_low_res=True)
         row_kwargs = [options, options]
         draw_boundaries = False
         end_mode = 0
