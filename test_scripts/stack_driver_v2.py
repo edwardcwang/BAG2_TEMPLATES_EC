@@ -73,7 +73,6 @@ class StackDriver(LaygoBase):
             config='laygo configuration dictionary.',
             threshold='transistor threshold flavor.',
             num_seg='number of driver segments.',
-            num_dseg='number of dummy segments.',
             sup_width='width of supply and output wire.',
             show_pins='True to draw pin geometries.',
         )
@@ -84,13 +83,11 @@ class StackDriver(LaygoBase):
 
         threshold = self.params['threshold']
         num_seg = self.params['num_seg']
-        num_dseg = self.params['num_dseg']
         show_pins = self.params['show_pins']
         sup_width = self.params['sup_width']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
-        num_dblk = num_dseg * 2
 
         row_list = ['nch', 'pch']
         orient_list = ['R0', 'MX']
@@ -131,22 +128,22 @@ class StackDriver(LaygoBase):
                                row_kwargs=row_kwargs)
 
         # determine total number of blocks
-        tot_blk = 2 * num_dblk + num_blk
+        tot_blk = num_blk + 4
         # draw pmos row
         row_idx = 1
-        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, num_dseg)
+        p_dict = self._draw_core_row(row_idx, num_seg, 1)
 
         # draw nmos row
         row_idx = 0
-        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, num_dseg)
+        n_dict = self._draw_core_row(row_idx, num_seg, 1)
 
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
 
         # connect supplies
-        vdd_warrs.extend(p_dict['s'])
-        vss_warrs.extend(n_dict['s'])
+        vdd_warrs = p_dict['s']
+        vss_warrs = n_dict['s']
         tid_sum = 0
         for name, warrs, row_idx in (('VDD', vdd_warrs, 1), ('VSS', vss_warrs, 0)):
             tid = self.make_track_id(row_idx, 'gb', noff + (sup_width - 1) / 2, width=sup_width)
@@ -173,47 +170,19 @@ class StackDriver(LaygoBase):
         pin = self.connect_to_tracks(p_dict['d'] + n_dict['d'], tid)
         self.add_pin('out', pin, show=show_pins)
 
-    def _draw_core_row(self, row_idx, num_seg, num_dseg):
-        tot_seg = num_seg + num_dseg * 2
+    def _draw_core_row(self, row_idx, num_seg, offset):
+        tot_seg = num_seg + 2 * offset
         blk_type = 'stack2s'
-
-        # add dummy wires
-        dum_warrs = []
-        for dum_idx in range(num_dseg - 1):
-            for seg_idx in (dum_idx, tot_seg - 1 - dum_idx):
-                col_idx = 2 * seg_idx
-                flip = col_idx % 2 == 1
-                inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=flip)
-                dum_warrs.extend(inst.get_all_port_pins('g'))
-                dum_warrs.extend(inst.get_all_port_pins('d'))
-                dum_warrs.extend(inst.get_all_port_pins('s'))
-                inst = self.add_laygo_primitive(blk_type, loc=(col_idx + 1, row_idx), flip=not flip)
-                dum_warrs.extend(inst.get_all_port_pins('g'))
-                dum_warrs.extend(inst.get_all_port_pins('d'))
-                dum_warrs.extend(inst.get_all_port_pins('s'))
-
-        # add half dummies
-        for idx, seg_idx in enumerate((num_dseg - 1, tot_seg - num_dseg)):
-            full_col = 2 * seg_idx + idx
-            half_col = 2 * seg_idx + (1 - idx)
-            inst = self.add_laygo_primitive(blk_type, loc=(full_col, row_idx), flip=full_col % 2 == 1)
-            dum_warrs.extend(inst.get_all_port_pins('g'))
-            dum_warrs.extend(inst.get_all_port_pins('d'))
-            dum_warrs.extend(inst.get_all_port_pins('s'))
-            half_flip = half_col % 2 == 1
-            inst = self.add_laygo_primitive(blk_type, loc=(half_col, row_idx), flip=half_flip)
-            dum_warrs.extend(inst.get_all_port_pins('g1'))
-            dum_warrs.extend(inst.get_all_port_pins('d'))
 
         # add core instances
         core_warrs = {'g0': [], 'g1': [], 'd': [], 's': []}
-        for seg_idx in range(num_dseg, tot_seg - num_dseg):
+        for seg_idx in range(offset, tot_seg - offset):
             for col_idx in (seg_idx * 2, seg_idx * 2 + 1):
                 inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=col_idx % 2 == 1)
                 for key, warrs in core_warrs.items():
                     warrs.extend(inst.get_all_port_pins(key))
 
-        return core_warrs, dum_warrs
+        return core_warrs
 
 
 def make_tdb(prj, target_lib, specs):
