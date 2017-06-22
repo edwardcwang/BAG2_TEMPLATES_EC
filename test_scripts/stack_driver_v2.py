@@ -117,6 +117,19 @@ class StackDriver(LaygoBase):
         self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
+        # get spacing between gate track and gate-bar tracks
+        noff = nsp
+        gidx = self.get_track_index(0, 'g', 0)
+        didx = self.get_track_index(0, 'gb', 0)
+        delta = int(didx - gidx)
+        if delta > 0:
+            # reduce number of gate-bar tracks.
+            delta = min(noff, delta)
+            num_gb_tracks = [nds - delta, nds - delta]
+            noff -= delta
+            self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                               row_kwargs=row_kwargs)
 
         # determine total number of blocks
         tot_blk = 2 * num_dblk + num_blk
@@ -137,7 +150,7 @@ class StackDriver(LaygoBase):
         vss_warrs.extend(n_dict['s'])
         tid_sum = 0
         for name, warrs, row_idx in (('VDD', vdd_warrs, 1), ('VSS', vss_warrs, 0)):
-            tid = self.make_track_id(row_idx, 'gb', nsp + (sup_width - 1) / 2, width=sup_width)
+            tid = self.make_track_id(row_idx, 'gb', noff + (sup_width - 1) / 2, width=sup_width)
             tid_sum += tid.base_index
             pin = self.connect_to_tracks(warrs, tid)
             self.add_pin(name, pin, show=show_pins)
@@ -147,7 +160,7 @@ class StackDriver(LaygoBase):
         # connect nmos/pmos gates
         for name, port, port_dict, row_idx in (('nbias', 'g1', n_dict, 0), ('nin', 'g0', n_dict, 0),
                                                ('pbias', 'g1', p_dict, 1), ('pin', 'g0', p_dict, 1)):
-            tidx = self.get_track_index(row_idx, port[0], 0)
+            tidx = self.get_track_index(row_idx, 'g', 0)
             if name == 'nin':
                 tidx -= 1
             elif name == 'pin':
