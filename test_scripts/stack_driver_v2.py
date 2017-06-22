@@ -131,19 +131,19 @@ class StackDriver(LaygoBase):
         tot_blk = num_blk + 4
         # draw pmos row
         row_idx = 1
-        p_dict = self._draw_core_row(row_idx, num_seg, 1)
+        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, 1)
 
         # draw nmos row
         row_idx = 0
-        n_dict = self._draw_core_row(row_idx, num_seg, 1)
+        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, 1)
 
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
 
         # connect supplies
-        vdd_warrs = p_dict['s']
-        vss_warrs = n_dict['s']
+        vdd_warrs.extend(p_dict['s'])
+        vss_warrs.extend(n_dict['s'])
         tid_sum = 0
         for name, warrs, row_idx in (('VDD', vdd_warrs, 1), ('VSS', vss_warrs, 0)):
             tid = self.make_track_id(row_idx, 'gb', noff + (sup_width - 1) / 2, width=sup_width)
@@ -174,6 +174,12 @@ class StackDriver(LaygoBase):
         tot_seg = num_seg + 2 * offset
         blk_type = 'stack2s'
 
+        # add substrate at ends
+        sub_inst = self.add_laygo_primitive('sub', loc=(0, row_idx))
+        sup_warrs = sub_inst.get_all_port_pins()
+        sub_inst = self.add_laygo_primitive('sub', loc=(2 * tot_seg - 1, row_idx))
+        sup_warrs.extend(sub_inst.get_all_port_pins())
+
         # add core instances
         core_warrs = {'g0': [], 'g1': [], 'd': [], 's': []}
         for seg_idx in range(offset, tot_seg - offset):
@@ -182,7 +188,7 @@ class StackDriver(LaygoBase):
                 for key, warrs in core_warrs.items():
                     warrs.extend(inst.get_all_port_pins(key))
 
-        return core_warrs
+        return core_warrs, sup_warrs
 
 
 def make_tdb(prj, target_lib, specs):
