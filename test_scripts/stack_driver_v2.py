@@ -121,12 +121,11 @@ class StackDriver(LaygoBase):
         noff = nsp
         gidx = self.get_track_index(0, 'g', 0)
         didx = self.get_track_index(0, 'gb', 0)
-        delta = int(didx - gidx)
+        delta = int(didx - gidx - 1)
         if delta > 0:
             # reduce number of gate-bar tracks.
-            delta = min(noff, delta)
             num_gb_tracks = [nds - delta, nds - delta]
-            noff -= delta
+            noff -= min(noff, delta)
             self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
                                num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                                row_kwargs=row_kwargs)
