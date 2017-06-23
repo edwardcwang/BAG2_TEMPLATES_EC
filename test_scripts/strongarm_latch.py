@@ -78,6 +78,8 @@ class StrongArmLatch(LaygoBase):
             num_nand_blk='number of nand blocks.',
             num_dblk='number of dummy blocks on both sides of latch.',
             show_pins='True to draw pin geometries.',
+            w_n='nmos width.',
+            w_p='pmos width.',
         )
 
     def draw_layout(self):
@@ -94,6 +96,9 @@ class StrongArmLatch(LaygoBase):
         num_dblk = self.params['num_dblk']
         num_nand_blk = self.params['num_nand_blk']
         show_pins = self.params['show_pins']
+        w_n = self.params['w_n']
+        w_p = self.params['w_p']
+        w_sub = self.params['config']['w_sub']
         wire_sp = 2
         wire_nand_sp = 2
         nand_sp_blk = 1
@@ -105,6 +110,7 @@ class StrongArmLatch(LaygoBase):
         row_list = ['ptap', 'nch', 'nch', 'nch', 'pch', 'ntap']
         orient_list = ['R0', 'R0', 'MX', 'MX', 'R0', 'MX']
         thres_list = [threshold] * 6
+        w_list = [w_sub, w_n, w_n, w_n, w_p, w_sub]
         num_g_tracks = [0, 1, 2, 2, 2, 0]
         num_gb_tracks = [0, 1, 0, 2, 2, 0]
         num_ds_tracks = [2, 0, 0, 0, 0, 2]
@@ -116,7 +122,7 @@ class StrongArmLatch(LaygoBase):
             end_mode = 0
 
         # specify row types
-        self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+        self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
 
