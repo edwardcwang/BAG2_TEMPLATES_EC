@@ -75,6 +75,8 @@ class StackDriver(LaygoBase):
             num_seg='number of driver segments.',
             sup_width='width of supply and output wire.',
             show_pins='True to draw pin geometries.',
+            w_p='pmos width.',
+            w_n='nmos width.',
         )
 
     def draw_layout(self):
@@ -85,11 +87,14 @@ class StackDriver(LaygoBase):
         num_seg = self.params['num_seg']
         show_pins = self.params['show_pins']
         sup_width = self.params['sup_width']
+        w_p = self.params['w_p']
+        w_n = self.params['w_n']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
 
         row_list = ['nch', 'pch']
+        w_list = [w_n, w_p]
         orient_list = ['R0', 'MX']
         thres_list = [threshold] * 2
 
@@ -111,7 +116,7 @@ class StackDriver(LaygoBase):
         end_mode = 0
 
         # specify row types
-        self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+        self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
         # get spacing between gate track and gate-bar tracks
@@ -123,7 +128,7 @@ class StackDriver(LaygoBase):
             # reduce number of gate-bar tracks.
             num_gb_tracks = [nds - delta, nds - delta]
             noff -= min(noff, delta)
-            self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+            self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                                num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                                row_kwargs=row_kwargs)
 
