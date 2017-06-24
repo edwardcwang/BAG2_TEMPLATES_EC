@@ -134,14 +134,15 @@ class StackDriver(LaygoBase):
                                row_kwargs=row_kwargs)
 
         # determine total number of blocks
-        tot_blk = num_blk + 4
+        sub_space_blk = self.min_sub_space
+        tot_blk = num_blk + 2 + 2 * sub_space_blk
         # draw pmos row
         row_idx = 1
-        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, 1)
+        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + 1)
 
         # draw nmos row
         row_idx = 0
-        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, 1)
+        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + 1)
 
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
@@ -176,21 +177,21 @@ class StackDriver(LaygoBase):
         pin = self.connect_to_tracks(p_dict['d'] + n_dict['d'], tid)
         self.add_pin('out', pin, show=show_pins)
 
-    def _draw_core_row(self, row_idx, num_seg, offset):
-        tot_seg = num_seg + 2 * offset
+    def _draw_core_row(self, row_idx, num_seg, blk_offset):
         blk_type = 'stack2s'
 
         # add substrate at ends
         sub_inst = self.add_laygo_primitive('sub', loc=(0, row_idx))
         sup_warrs = sub_inst.get_all_port_pins()
-        sub_inst = self.add_laygo_primitive('sub', loc=(2 * tot_seg - 1, row_idx))
+        sub_inst = self.add_laygo_primitive('sub', loc=(2 * num_seg + 2 * blk_offset - 1, row_idx))
         sup_warrs.extend(sub_inst.get_all_port_pins())
 
         # add core instances
         core_warrs = {'g0': [], 'g1': [], 'd': [], 's': []}
-        for seg_idx in range(offset, tot_seg - offset):
-            for col_idx in (seg_idx * 2, seg_idx * 2 + 1):
-                inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=col_idx % 2 == 1)
+        for seg_idx in range(num_seg):
+            for col_idx in (blk_offset + seg_idx * 2, blk_offset + seg_idx * 2 + 1):
+                flip = (col_idx % 2) != (blk_offset % 2)
+                inst = self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), flip=flip)
                 for key, warrs in core_warrs.items():
                     warrs.extend(inst.get_all_port_pins(key))
 
