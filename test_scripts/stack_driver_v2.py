@@ -245,7 +245,7 @@ class StackDriverArray(DigitalBase):
         ny = self.params['ny']
         show_pins = self.params['show_pins']
 
-        draw_boundaries = False
+        draw_boundaries = True
         end_mode = 15
 
         drv_master = self.new_template(params=driver_params, temp_cls=StackDriver)
@@ -259,6 +259,7 @@ class StackDriverArray(DigitalBase):
 
         num_col = nx * spx
         self.set_digital_size(num_col)
+        self.fill_space()
         self.draw_boundary_cells()
 
 
