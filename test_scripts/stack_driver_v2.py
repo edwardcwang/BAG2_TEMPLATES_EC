@@ -135,14 +135,15 @@ class StackDriver(LaygoBase):
 
         # determine total number of blocks
         sub_space_blk = self.min_sub_space
-        tot_blk = num_blk + 2 + 2 * sub_space_blk
+        sub_blk = self.sub_columns
+        tot_blk = num_blk + 2 * sub_blk + 2 * sub_space_blk
         # draw pmos row
         row_idx = 1
-        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + 1)
+        p_dict, vdd_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + sub_blk)
 
         # draw nmos row
         row_idx = 0
-        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + 1)
+        n_dict, vss_warrs = self._draw_core_row(row_idx, num_seg, sub_space_blk + sub_blk)
 
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
@@ -183,7 +184,7 @@ class StackDriver(LaygoBase):
         # add substrate at ends
         sub_inst = self.add_laygo_primitive('sub', loc=(0, row_idx))
         sup_warrs = sub_inst.get_all_port_pins()
-        sub_inst = self.add_laygo_primitive('sub', loc=(2 * num_seg + 2 * blk_offset - 1, row_idx))
+        sub_inst = self.add_laygo_primitive('sub', loc=(2 * num_seg + 2 * blk_offset - self.sub_columns, row_idx))
         sup_warrs.extend(sub_inst.get_all_port_pins())
 
         # add core instances
