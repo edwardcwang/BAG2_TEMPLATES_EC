@@ -263,8 +263,6 @@ class StrongArmLatch(LaygoBase):
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
-        # draw boundaries and get guard ring power rail tracks
-        self.draw_boundary_cells()
 
         # connect ground
         source_vss = pw_tap.get_all_port_pins('VSS') + tailn.get_all_port_pins('s') + tailp.get_all_port_pins('s')
