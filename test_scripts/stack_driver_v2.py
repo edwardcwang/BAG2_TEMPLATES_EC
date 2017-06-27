@@ -120,18 +120,24 @@ class StackDriver(LaygoBase):
         self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
-        # get spacing between gate track and gate-bar tracks
-        noff = nsp
-        gidx = self.get_track_index(0, 'g', 0)
-        didx = self.get_track_index(0, 'gb', 0)
-        delta = int(didx - gidx - 1)
-        if delta > 0:
-            # reduce number of gate-bar tracks.
-            num_gb_tracks = [nds - delta, nds - delta]
-            noff -= min(noff, delta)
+        # reduce number of gate-bar tracks in nmos and pmos.
+        ngidx = 0
+        pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
+        tot_tracks = int(pgidx - ngidx + 1)
+        extra_tracks = tot_tracks - (tot_ds_tracks + 2)
+        if extra_tracks > 0:
+            ndelta = extra_tracks // 2
+            pdelta = extra_tracks - ndelta
+            num_gb_tracks = [nds - ndelta, nds - pdelta]
             self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                                num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                                row_kwargs=row_kwargs)
+
+        # compute supply wire track index
+        ngidx = 0
+        pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
+        vss_idx = ngidx + nsp + (sup_width + 1) / 2
+        vdd_idx = pgidx - nsp - (sup_width + 1) / 2
 
         # determine total number of blocks
         sub_space_blk = self.min_sub_space
@@ -152,23 +158,16 @@ class StackDriver(LaygoBase):
         # connect supplies
         vdd_warrs.extend(p_dict['s'])
         vss_warrs.extend(n_dict['s'])
-        tid_sum = 0
-        for name, warrs, row_idx in (('VDD', vdd_warrs, 1), ('VSS', vss_warrs, 0)):
-            tid = self.make_track_id(row_idx, 'gb', noff + (sup_width - 1) / 2, width=sup_width)
-            tid_sum += tid.base_index
+        for name, warrs, row_idx, tr_idx in (('VDD', vdd_warrs, 1, vdd_idx), ('VSS', vss_warrs, 0, vss_idx)):
+            tid = TrackID(hm_layer, tr_idx, width=sup_width)
             pin = self.connect_to_tracks(warrs, tid)
             self.add_pin(name, pin, show=show_pins)
 
-        out_tidx = tid_sum / 2
+        out_tidx = int(round((vdd_idx + vss_idx))) / 2
 
         # connect nmos/pmos gates
-        for name, port, port_dict, row_idx in (('nbias', 'g1', n_dict, 0), ('nin', 'g0', n_dict, 0),
-                                               ('pbias', 'g1', p_dict, 1), ('pin', 'g0', p_dict, 1)):
-            tidx = self.get_track_index(row_idx, 'g', 0)
-            if name == 'nin':
-                tidx -= 1
-            elif name == 'pin':
-                tidx += 1
+        for name, port, port_dict, tidx in (('nbias', 'g1', n_dict, ngidx), ('nin', 'g0', n_dict, ngidx - 1),
+                                            ('pbias', 'g1', p_dict, pgidx), ('pin', 'g0', p_dict, pgidx + 1)):
             tid = TrackID(self.conn_layer + 1, tidx)
             pin = self.connect_to_tracks(port_dict[port], tid)
             self.add_pin(name, pin, show=show_pins)
