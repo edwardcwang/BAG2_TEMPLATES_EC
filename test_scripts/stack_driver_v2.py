@@ -262,7 +262,6 @@ class StackDriverArray(DigitalBase):
         num_col = nx * spx
         self.set_digital_size(num_col)
         self.fill_space()
-        self.draw_boundary_cells()
 
 
 def make_tdb(prj, target_lib, specs):
