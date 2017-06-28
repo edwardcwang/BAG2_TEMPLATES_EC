@@ -109,8 +109,10 @@ class StackDriver(LaygoBase):
         # satisfy DRC rules
         vm_layer = self.conn_layer
         hm_layer = vm_layer + 1
-        nsp = max(sig_space, self.grid.get_num_space_tracks(hm_layer, sup_width, half_space=True, same_color=True))
-
+        if sup_width > 1:
+            nsp = max(sig_space, self.grid.get_num_space_tracks(hm_layer, sup_width, half_space=True, same_color=True))
+        else:
+            nsp = sig_space
         # to draw special stack driver primitive, we need to enable dual_gate options.
         options = dict(ds_low_res=True)
         row_kwargs = [options, options]
