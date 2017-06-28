@@ -305,14 +305,15 @@ class StackDriverArray(DigitalBase):
 
         spx = drv_master0.laygo_size[0]
         inst_list = []
-        vdd_list = []
-        vss_list = []
+        wire_table = {}
         for row_idx in range(ny):
             master = drv_master0 if row_idx % 2 == 0 else drv_master1
             cur_inst = self.add_digital_block(master, loc=(0, row_idx), nx=nx, spx=spx)
             inst_list.append(cur_inst)
-            vdd_list.append(self.connect_wires(cur_inst.get_all_port_pins('VDD'))[0])
-            vss_list.append(self.connect_wires(cur_inst.get_all_port_pins('VSS'))[0])
+            for name in ('VDD', 'VSS', 'pin', 'nin', 'pbias', 'nbias', 'out'):
+                if name not in wire_table:
+                    wire_table[name] = []
+                wire_table[name].append(self.connect_wires(cur_inst.get_all_port_pins(name))[0])
 
         num_col = nx * spx
         sub_cols = self.laygo_info.sub_columns
@@ -326,14 +327,18 @@ class StackDriverArray(DigitalBase):
         self.set_digital_size(num_col)
         bot_warrs, top_warrs, _, _ = self.fill_space(port_cols=port_cols)
 
-        bot_hm = vss_list[0]
+        bot_hm = wire_table['VSS'][0]
         if ny % 2 == 0:
-            top_hm = vss_list[-1]
+            top_hm = wire_table['VDD'][-1]
         else:
-            top_hm = vdd_list[-1]
+            top_hm = wire_table['VSS'][-1]
 
         self.connect_to_tracks(bot_warrs, bot_hm.track_id)
         self.connect_to_tracks(top_warrs, top_hm.track_id)
+
+        # export ports
+        for name, wires in wire_table.items():
+            self.add_pin(name, wires, label=name + ':', show=show_pins)
 
 
 def make_tdb(prj, target_lib, specs):
