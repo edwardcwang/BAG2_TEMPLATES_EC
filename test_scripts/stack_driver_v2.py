@@ -28,6 +28,7 @@
 from typing import Dict, Any, Set
 
 import yaml
+import math
 
 from bag import BagProject
 from bag.layout.routing import RoutingGrid, TrackID
@@ -108,12 +109,7 @@ class StackDriver(LaygoBase):
         # satisfy DRC rules
         vm_layer = self.conn_layer
         hm_layer = vm_layer + 1
-        nsp = max(sig_space, self.grid.get_num_space_tracks(hm_layer, sup_width, same_color=True))
-        tot_ds_tracks = 3 * sup_width + 4 * nsp
-        nds = -(-tot_ds_tracks // 2)
-        num_g_tracks = [1, 1]
-        num_gb_tracks = [nds, nds]
-        num_ds_tracks = [1, 1]
+        nsp = max(sig_space, self.grid.get_num_space_tracks(hm_layer, sup_width, half_space=True, same_color=True))
 
         # to draw special stack driver primitive, we need to enable dual_gate options.
         options = dict(ds_low_res=True)
@@ -121,34 +117,51 @@ class StackDriver(LaygoBase):
         draw_boundaries = False
         end_mode = 0
 
-        # specify row types
+        # find number of tracks iteratively
+        num_g_tracks = [1, 1]
+        num_gb_tracks = [1, 1]
+        num_ds_tracks = [0, 0]
+
+        # first iteration
         self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
-        # reduce number of gate-bar tracks in nmos and pmos.
+        # increase number of N gate tracks so we meet spacing rule between N input and N output
         ngidx = 0
         ndidx = self.get_track_index(0, 'gb', 0)
-        pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
-        pdidx = self.get_track_index(1, 'gb', 0)
-        n_space = max(ndidx - ngidx - 1, nsp)
-        p_space = max(pgidx - pdidx - 1, nsp)
-        extra_space = (n_space - nsp) + (p_space - nsp)
-
-        tot_tracks = int(pgidx - ngidx + 1)
-        extra_tracks = tot_tracks - (extra_space + tot_ds_tracks + 2)
-        if extra_tracks > 0:
-            ndelta = extra_tracks // 2
-            pdelta = extra_tracks - ndelta
-            num_gb_tracks = [nds - ndelta, nds - pdelta]
+        cur_sp = ndidx - ngidx - 1
+        if cur_sp < nsp:
+            num_g_tracks = [1 + int(math.ceil(nsp - cur_sp)), 1]
             self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                                num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                                row_kwargs=row_kwargs)
+            ndidx = self.get_track_index(0, 'gb', 0)
 
-        # compute supply wire track index
-        ngidx = 0
+        vss_idx = ndidx + (sup_width - 1) / 2
+        out_idx = vss_idx + sup_width + nsp
+        vdd_idx = out_idx + (out_idx - vss_idx)
+        vdd_edge_idx = vdd_idx + (sup_width - 1) / 2
+
+        # increase number of gate-bar tracks so we have sufficient room
+        tot_gb_tracks = int(math.ceil(vdd_edge_idx - ndidx + 1))
+        ngb_tracks = tot_gb_tracks // 2
+        pgb_tracks = tot_gb_tracks - ngb_tracks
+        num_gb_tracks = [ngb_tracks, pgb_tracks]
+        self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
+                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                           row_kwargs=row_kwargs)
+
+        # increase number of P gate tracks so we meet spacing rule between P input and P output
         pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
-        vss_idx = ngidx + n_space + (sup_width + 1) / 2
-        vdd_idx = pgidx - p_space - (sup_width + 1) / 2
+        cur_sp = pgidx - vdd_edge_idx - 1
+        if cur_sp < nsp:
+            num_g_tracks = [num_g_tracks[0], 1 + int(math.ceil(nsp - cur_sp))]
+            self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
+                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                               row_kwargs=row_kwargs)
+            pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
+
+        # placement done
 
         # determine total number of blocks
         sub_space_blk = self.min_sub_space
@@ -188,8 +201,6 @@ class StackDriver(LaygoBase):
             pin = self.connect_to_tracks(warrs, tid)
             self.add_pin(name, pin, show=show_pins)
 
-        out_tidx = int(round((vdd_idx + vss_idx))) / 2
-
         nbidx, niidx = ngidx, ngidx - 1
         pbidx, piidx = pgidx, pgidx + 1
         if parity == 1:
@@ -204,7 +215,7 @@ class StackDriver(LaygoBase):
             self.add_pin(name, pin, show=show_pins)
 
         # connect output
-        tid = TrackID(self.conn_layer + 1, out_tidx, width=sup_width)
+        tid = TrackID(self.conn_layer + 1, out_idx, width=sup_width)
         pin = self.connect_to_tracks(p_dict['d'] + n_dict['d'], tid)
         self.add_pin('out', pin, show=show_pins)
 
@@ -379,5 +390,5 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    generate_unit(bprj)
-    # generate_array(bprj)
+    # generate_unit(bprj)
+    generate_array(bprj)
