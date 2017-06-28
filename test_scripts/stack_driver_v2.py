@@ -329,9 +329,9 @@ class StackDriverArray(DigitalBase):
 
         bot_hm = wire_table['VSS'][0]
         if ny % 2 == 0:
-            top_hm = wire_table['VDD'][-1]
-        else:
             top_hm = wire_table['VSS'][-1]
+        else:
+            top_hm = wire_table['VDD'][-1]
 
         self.connect_to_tracks(bot_warrs, bot_hm.track_id)
         self.connect_to_tracks(top_warrs, top_hm.track_id)
