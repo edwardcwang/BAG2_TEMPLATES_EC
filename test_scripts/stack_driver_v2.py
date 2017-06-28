@@ -164,16 +164,23 @@ class StackDriver(LaygoBase):
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
 
-        # fix length quantization rule
+        # fix length quantization rule for gate and source
         min_len = self.grid.get_min_length(vm_layer, 1)
-        p_source = p_dict['s']
-        n_source = n_dict['s']
-        p_source = self.extend_wires(p_source, upper=p_source[0].upper, lower=p_source[0].upper - min_len)
-        n_source = self.extend_wires(n_source, upper=n_source[0].lower + min_len, lower=n_source[0].lower)
+        for gtype, ext_dir in (('g0', 0), ('g1', 0), ('s', 1)):
+            for table, flip in ((n_dict, False), (p_dict, True)):
+                warrs = table[gtype]
+                if flip:
+                    ext_dir = 1 - ext_dir
+                if ext_dir == 0:
+                    lower, upper = warrs[0].upper - min_len, warrs[0].upper
+                else:
+                    lower, upper = warrs[0].lower, warrs[0].lower + min_len
+
+                self.extend_wires(warrs, lower=lower, upper=upper)
 
         # connect supplies
-        vdd_warrs.extend(p_source)
-        vss_warrs.extend(n_source)
+        vdd_warrs.extend(p_dict['s'])
+        vss_warrs.extend(n_dict['s'])
         for name, warrs, row_idx, tr_idx in (('VDD', vdd_warrs, 1, vdd_idx), ('VSS', vss_warrs, 0, vss_idx)):
             tid = TrackID(hm_layer, tr_idx, width=sup_width)
             pin = self.connect_to_tracks(warrs, tid)
