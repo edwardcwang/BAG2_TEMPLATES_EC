@@ -79,6 +79,7 @@ class StackDriver(LaygoBase):
             w_p='pmos width.',
             w_n='nmos width.',
             parity='input gate track parity.',
+            sig_space='minimum number of space tracks between signals.',
         )
 
     def draw_layout(self):
@@ -92,6 +93,7 @@ class StackDriver(LaygoBase):
         w_p = self.params['w_p']
         w_n = self.params['w_n']
         parity = self.params['parity']
+        sig_space = self.params['sig_space']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
@@ -106,7 +108,7 @@ class StackDriver(LaygoBase):
         # satisfy DRC rules
         vm_layer = self.conn_layer
         hm_layer = vm_layer + 1
-        nsp = self.grid.get_num_space_tracks(hm_layer, sup_width)
+        nsp = max(sig_space, self.grid.get_num_space_tracks(hm_layer, sup_width, same_color=True))
         tot_ds_tracks = 3 * sup_width + 4 * nsp
         nds = -(-tot_ds_tracks // 2)
         num_g_tracks = [1, 1]
@@ -377,5 +379,5 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    # generate_unit(bprj)
-    generate_array(bprj)
+    generate_unit(bprj)
+    # generate_array(bprj)
