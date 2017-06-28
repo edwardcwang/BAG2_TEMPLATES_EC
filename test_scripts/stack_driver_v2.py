@@ -78,6 +78,7 @@ class StackDriver(LaygoBase):
             show_pins='True to draw pin geometries.',
             w_p='pmos width.',
             w_n='nmos width.',
+            parity='input gate track parity.',
         )
 
     def draw_layout(self):
@@ -90,6 +91,7 @@ class StackDriver(LaygoBase):
         sup_width = self.params['sup_width']
         w_p = self.params['w_p']
         w_n = self.params['w_n']
+        parity = self.params['parity']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
@@ -179,9 +181,15 @@ class StackDriver(LaygoBase):
 
         out_tidx = int(round((vdd_idx + vss_idx))) / 2
 
+        nbidx, niidx = ngidx, ngidx - 1
+        pbidx, piidx = pgidx, pgidx + 1
+        if parity == 1:
+            nbidx, niidx = niidx, nbidx
+            pbidx, piidx = piidx, pbidx
+
         # connect nmos/pmos gates
-        for name, port, port_dict, tidx in (('nbias', 'g1', n_dict, ngidx), ('nin', 'g0', n_dict, ngidx - 1),
-                                            ('pbias', 'g1', p_dict, pgidx), ('pin', 'g0', p_dict, pgidx + 1)):
+        for name, port, port_dict, tidx in (('nbias', 'g1', n_dict, nbidx), ('nin', 'g0', n_dict, niidx),
+                                            ('pbias', 'g1', p_dict, pbidx), ('pin', 'g0', p_dict, piidx)):
             tid = TrackID(self.conn_layer + 1, tidx)
             pin = self.connect_to_tracks(port_dict[port], tid)
             self.add_pin(name, pin, show=show_pins)
@@ -255,7 +263,7 @@ class StackDriverArray(DigitalBase):
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        driver_params = self.params['driver_params']
+        drv0_params = self.params['driver_params'].copy()
         nx = self.params['nx']
         ny = self.params['ny']
         show_pins = self.params['show_pins']
@@ -263,17 +271,23 @@ class StackDriverArray(DigitalBase):
         draw_boundaries = True
         end_mode = 15
 
-        drv_master = self.new_template(params=driver_params, temp_cls=StackDriver)
-        row_info = drv_master.get_digital_row_info()
+        drv0_params['parity'] = 0
+        drv_master0 = self.new_template(params=drv0_params, temp_cls=StackDriver)
+        drv1_params = drv0_params.copy()
+        drv1_params['parity'] = 1
+        drv_master1 = self.new_template(params=drv1_params, temp_cls=StackDriver)
+
+        row_info = drv_master0.get_digital_row_info()
 
         self.initialize(row_info, ny, draw_boundaries, end_mode)
 
-        spx = drv_master.laygo_size[0]
+        spx = drv_master0.laygo_size[0]
         inst_list = []
         vdd_list = []
         vss_list = []
         for row_idx in range(ny):
-            cur_inst = self.add_digital_block(drv_master, loc=(0, row_idx), nx=nx, spx=spx)
+            master = drv_master0 if row_idx % 2 == 0 else drv_master1
+            cur_inst = self.add_digital_block(master, loc=(0, row_idx), nx=nx, spx=spx)
             inst_list.append(cur_inst)
             vdd_list.append(self.connect_wires(cur_inst.get_all_port_pins('VDD'))[0])
             vss_list.append(self.connect_wires(cur_inst.get_all_port_pins('VSS'))[0])
