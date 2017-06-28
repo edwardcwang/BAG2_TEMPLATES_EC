@@ -102,7 +102,8 @@ class StackDriver(LaygoBase):
         # compute number of tracks
         # note: because we're using thick wires, we need to compute space needed to
         # satisfy DRC rules
-        hm_layer = self.conn_layer + 1
+        vm_layer = self.conn_layer
+        hm_layer = vm_layer + 1
         nsp = self.grid.get_num_space_tracks(hm_layer, sup_width)
         tot_ds_tracks = 3 * sup_width + 4 * nsp
         nds = -(-tot_ds_tracks // 2)
@@ -122,9 +123,15 @@ class StackDriver(LaygoBase):
                            row_kwargs=row_kwargs)
         # reduce number of gate-bar tracks in nmos and pmos.
         ngidx = 0
+        ndidx = self.get_track_index(0, 'gb', 0)
         pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
+        pdidx = self.get_track_index(1, 'gb', 0)
+        n_space = max(ndidx - ngidx - 1, nsp)
+        p_space = max(pgidx - pdidx - 1, nsp)
+        extra_space = (n_space - nsp) + (p_space - nsp)
+
         tot_tracks = int(pgidx - ngidx + 1)
-        extra_tracks = tot_tracks - (tot_ds_tracks + 2)
+        extra_tracks = tot_tracks - (extra_space + tot_ds_tracks + 2)
         if extra_tracks > 0:
             ndelta = extra_tracks // 2
             pdelta = extra_tracks - ndelta
@@ -136,8 +143,8 @@ class StackDriver(LaygoBase):
         # compute supply wire track index
         ngidx = 0
         pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
-        vss_idx = ngidx + nsp + (sup_width + 1) / 2
-        vdd_idx = pgidx - nsp - (sup_width + 1) / 2
+        vss_idx = ngidx + n_space + (sup_width + 1) / 2
+        vdd_idx = pgidx - p_space - (sup_width + 1) / 2
 
         # determine total number of blocks
         sub_space_blk = self.min_sub_space
@@ -155,9 +162,16 @@ class StackDriver(LaygoBase):
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
 
+        # fix length quantization rule
+        min_len = self.grid.get_min_length(vm_layer, 1)
+        p_source = p_dict['s']
+        n_source = n_dict['s']
+        p_source = self.extend_wires(p_source, upper=p_source[0].upper, lower=p_source[0].upper - min_len)
+        n_source = self.extend_wires(n_source, upper=n_source[0].lower + min_len, lower=n_source[0].lower)
+
         # connect supplies
-        vdd_warrs.extend(p_dict['s'])
-        vss_warrs.extend(n_dict['s'])
+        vdd_warrs.extend(p_source)
+        vss_warrs.extend(n_source)
         for name, warrs, row_idx, tr_idx in (('VDD', vdd_warrs, 1, vdd_idx), ('VSS', vss_warrs, 0, vss_idx)):
             tid = TrackID(hm_layer, tr_idx, width=sup_width)
             pin = self.connect_to_tracks(warrs, tid)
