@@ -255,12 +255,35 @@ class StackDriverArray(DigitalBase):
         self.initialize(row_info, ny, draw_boundaries, end_mode)
 
         spx = drv_master.laygo_size[0]
+        inst_list = []
+        vdd_list = []
+        vss_list = []
         for row_idx in range(ny):
-            self.add_digital_block(drv_master, loc=(0, row_idx), nx=nx, spx=spx)
+            cur_inst = self.add_digital_block(drv_master, loc=(0, row_idx), nx=nx, spx=spx)
+            inst_list.append(cur_inst)
+            vdd_list.append(self.connect_wires(cur_inst.get_all_port_pins('VDD'))[0])
+            vss_list.append(self.connect_wires(cur_inst.get_all_port_pins('VSS'))[0])
 
         num_col = nx * spx
+        sub_cols = self.laygo_info.sub_columns
+        sub_port_cols = self.laygo_info.sub_port_columns
+        port_unit = sub_port_cols + [spx - sub_cols + i for i in sub_port_cols]
+
+        port_cols = list(port_unit)
+        for idx in range(1, nx):
+            port_cols.extend((i + idx * spx for i in port_unit))
+
         self.set_digital_size(num_col)
-        self.fill_space()
+        bot_warrs, top_warrs, _, _ = self.fill_space(port_cols=port_cols)
+
+        bot_hm = vss_list[0]
+        if ny % 2 == 0:
+            top_hm = vss_list[-1]
+        else:
+            top_hm = vdd_list[-1]
+
+        self.connect_to_tracks(bot_warrs, bot_hm.track_id)
+        self.connect_to_tracks(top_warrs, top_hm.track_id)
 
 
 def make_tdb(prj, target_lib, specs):
