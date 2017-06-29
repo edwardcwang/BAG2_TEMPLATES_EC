@@ -108,6 +108,8 @@ class PMOSCurrentMirror(AnalogBase):
         # calculate total number of fingers.
         fg_tot = sum(fg_out_list) + fg + fg_cap * (len(fg_out_list) + 2)
 
+        gds_space = 1
+
         # draw AnalogBase rows
         # compute pmos/nmos gate/drain/source number of tracks
         draw_params = dict(
@@ -122,26 +124,42 @@ class PMOSCurrentMirror(AnalogBase):
             ng_tracks=[],
             pg_tracks=[1, hm_width],
             nds_tracks=[],
-            pds_tracks=[1, hm_width],
+            pds_tracks=[1, gds_space + hm_width],
             guard_ring_nf=guard_ring_nf,
             p_orientations=['MX', 'R0'],
         )
         self.draw_base(**draw_params)
 
+        out_idx = self.make_track_id('pch', 1, 'ds', gds_space + (hm_width - 1) / 2, width=hm_width)
+        ref_idx = self.make_track_id('pch', 1, 'g', (hm_width - 1) / 2, width=hm_width)
+
         self.draw_mos_decap('pch', 1, 0, fg_cap, 2)
         ref_ports = self.draw_mos_conn('pch', 1, fg_cap, fg, 2, 0, diode_conn=True, gate_ext_mode=3)
+        self.connect_to_substrate('ntap', ref_ports['s'])
+        gate_list = [ref_ports['g']]
+
         cursor = fg + fg_cap
-        out_ports_list = []
-        for fg_cur in fg_out_list:
+        for idx, fg_cur in enumerate(fg_out_list):
             self.draw_mos_decap('pch', 1, cursor, fg_cap, 3)
             cursor += fg_cap
-            cur_ports = self.draw_mos_conn('pch', 1, cursor, fg_cur, 2, 0, gate_ext_mode=3)
+            cur_ports = self.draw_mos_conn('pch', 1, cursor, fg_cur, 2, 2, gate_ext_mode=3, gate_pref_loc='d')
             cursor += fg_cur
-            out_ports_list.append(cur_ports)
+
+            self.connect_to_substrate('ntap', cur_ports['s'])
+            iout = self.connect_to_tracks(cur_ports['d'], out_idx)
+            self.add_pin('iout<%d>' % idx, iout, show=show_pins)
+            gate_list.append(cur_ports['g'])
+
         self.draw_mos_decap('pch', 1, cursor, fg_cap, 1)
 
-        bot_decap_ports = self.draw_mos_decap('pch', 0, 0, fg_tot, 0, export_gate=True, sdir=0, ddir=2, inner=True)
+        bot_decap_ports = self.draw_mos_decap('pch', 0, 0, fg_tot, 0, export_gate=True, sdir=2, ddir=0, inner=True)
+        gate_list.append(bot_decap_ports['g'])
+
         _, vdd_warrs = self.fill_dummy()
+        self.add_pin('VDD', vdd_warrs, show=show_pins)
+
+        iin = self.connect_to_tracks(gate_list, ref_idx)
+        self.add_pin('iin', iin, show=show_pins)
 
 
 def make_tdb(prj, target_lib, specs):
