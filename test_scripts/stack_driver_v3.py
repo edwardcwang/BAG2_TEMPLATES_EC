@@ -81,6 +81,7 @@ class StackDriver(LaygoBase):
             w_n='nmos width.',
             parity='input gate track parity.',
             sig_space='minimum number of space tracks between signals.',
+            guard_ring_nf='number of guard ring fingers.',
         )
 
     def draw_layout(self):
@@ -96,6 +97,7 @@ class StackDriver(LaygoBase):
         parity = self.params['parity']
         sig_space = self.params['sig_space']
         w_sub = self.params['config']['w_sub']
+        guard_ring_nf = self.params['guard_ring_nf']
 
         # each segment contains two blocks, i.e. two parallel stack transistors
         num_blk = num_seg * 2
@@ -127,7 +129,7 @@ class StackDriver(LaygoBase):
 
         # first iteration
         self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
-                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=guard_ring_nf,
                            row_kwargs=row_kwargs)
 
         # increase number of N gate tracks so we meet spacing rule between N input and N output
@@ -137,7 +139,7 @@ class StackDriver(LaygoBase):
         if cur_sp < nsp:
             num_g_tracks = [1 + int(math.ceil(nsp - cur_sp)), 0, 0, 1]
             self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
-                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=guard_ring_nf,
                                row_kwargs=row_kwargs)
             ndidx = self.get_track_index(0, 'gb', 0)
 
@@ -156,7 +158,7 @@ class StackDriver(LaygoBase):
             pinc = inc_tracks - ninc
             num_gb_tracks = [num_gb_tracks[0] + ninc, 0, 0, num_gb_tracks[3] + pinc]
             self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
-                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=guard_ring_nf,
                                row_kwargs=row_kwargs)
             pdidx = self.get_track_index(3, 'gb', 0)
 
@@ -166,7 +168,7 @@ class StackDriver(LaygoBase):
         if cur_sp < nsp:
             num_g_tracks = [num_g_tracks[0], 0, 0, 1 + int(math.ceil(nsp - cur_sp))]
             self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
-                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                               num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=guard_ring_nf,
                                row_kwargs=row_kwargs)
             pgidx = self.grid.coord_to_nearest_track(hm_layer, self.tot_height, mode=-2, unit_mode=True)
 
@@ -304,6 +306,7 @@ class StackDriverArray(DigitalBase):
         """
         return dict(
             driver_params='stack driver parameters.',
+            guard_ring_nf='number of guard ring fingers.',
             nx='number of columns.',
             ny='number of rows.',
             show_pins='True to draw pin geometries.',
@@ -316,11 +319,13 @@ class StackDriverArray(DigitalBase):
         nx = self.params['nx']
         ny = self.params['ny']
         show_pins = self.params['show_pins']
+        guard_ring_nf = self.params['guard_ring_nf']
 
         draw_boundaries = True
         end_mode = 15
 
         drv0_params['parity'] = 0
+        drv0_params['guard_ring_nf'] = guard_ring_nf
         drv_master0 = self.new_template(params=drv0_params, temp_cls=StackDriver)
         drv1_params = drv0_params.copy()
         drv1_params['parity'] = 1
@@ -328,7 +333,7 @@ class StackDriverArray(DigitalBase):
 
         row_info = drv_master0.get_digital_row_info()
 
-        self.initialize(row_info, ny, draw_boundaries, end_mode)
+        self.initialize(row_info, ny, draw_boundaries, end_mode, guard_ring_nf=guard_ring_nf)
 
         spx = drv_master0.laygo_size[0]
         inst_list = []
@@ -424,5 +429,5 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    generate_unit(bprj)
-    # generate_array(bprj)
+    # generate_unit(bprj)
+    generate_array(bprj)
