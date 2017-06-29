@@ -106,7 +106,7 @@ class PMOSCurrentMirror(AnalogBase):
         # type: (...) -> None
 
         # calculate total number of fingers.
-        fg_tot = sum(fg_out_list) + fg + fg_cap * 2
+        fg_tot = sum(fg_out_list) + fg + fg_cap * (len(fg_out_list) + 2)
 
         # draw AnalogBase rows
         # compute pmos/nmos gate/drain/source number of tracks
@@ -127,6 +127,21 @@ class PMOSCurrentMirror(AnalogBase):
             p_orientations=['MX', 'R0'],
         )
         self.draw_base(**draw_params)
+
+        self.draw_mos_decap('pch', 1, 0, fg_cap, 2)
+        ref_ports = self.draw_mos_conn('pch', 1, fg_cap, fg, 2, 0, diode_conn=True, gate_ext_mode=3)
+        cursor = fg + fg_cap
+        out_ports_list = []
+        for fg_cur in fg_out_list:
+            self.draw_mos_decap('pch', 1, cursor, fg_cap, 3)
+            cursor += fg_cap
+            cur_ports = self.draw_mos_conn('pch', 1, cursor, fg_cur, 2, 0, gate_ext_mode=3)
+            cursor += fg_cur
+            out_ports_list.append(cur_ports)
+        self.draw_mos_decap('pch', 1, cursor, fg_cap, 1)
+
+        bot_decap_ports = self.draw_mos_decap('pch', 0, 0, fg_tot, 0, export_gate=True, sdir=0, ddir=2, inner=True)
+        _, vdd_warrs = self.fill_dummy()
 
 
 def make_tdb(prj, target_lib, specs):
