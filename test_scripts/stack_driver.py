@@ -98,6 +98,7 @@ class StackDriver(LaygoBase):
         num_dblk = num_dseg * 2
 
         row_list = ['ptap', 'nch', 'pch', 'ntap']
+        w_list = [4, 8, 8, 4]
         orient_list = ['R0', 'R0', 'R0', 'MX']
         thres_list = [threshold] * 4
 
@@ -120,7 +121,7 @@ class StackDriver(LaygoBase):
             end_mode = 0
 
         # specify row types
-        self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+        self.set_row_types(row_list, w_list, orient_list, thres_list, draw_boundaries, end_mode,
                            num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
                            row_kwargs=row_kwargs)
 
@@ -145,8 +146,6 @@ class StackDriver(LaygoBase):
         # compute overall block size
         self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
-        # draw boundaries and get guard ring power rail tracks
-        self.draw_boundary_cells()
 
         # connect supplies
         vdd_warrs.extend(p_dict['s'])
@@ -159,8 +158,9 @@ class StackDriver(LaygoBase):
             self.add_pin(name, pin, show=show_pins)
 
         # connect nmos/pmos gates
-        for name, port, port_dict, row_idx, tr in (('nbias', 'g', n_dict, 1, nsp), ('nin', 'gb', n_dict, 1, 0),
-                                                   ('pbias', 'gb', p_dict, 2, 0), ('pin', 'g', p_dict, 2, num_g_sp - 1)):
+        for name, port, port_dict, row_idx, tr in \
+                (('nbias', 'g', n_dict, 1, nsp), ('nin', 'gb', n_dict, 1, 0),
+                 ('pbias', 'gb', p_dict, 2, 0), ('pin', 'g', p_dict, 2, num_g_sp - 1)):
             tid = self.make_track_id(row_idx, port, tr)
             pin = self.connect_to_tracks(port_dict[port], tid)
             self.add_pin(name, pin, show=show_pins)
