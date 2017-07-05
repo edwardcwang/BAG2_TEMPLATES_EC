@@ -29,9 +29,8 @@
 from typing import Dict, Any, Set
 
 import yaml
-import copy
 
-from bag import BagProject, float_to_si_string
+from bag import BagProject
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateDB
 
@@ -73,21 +72,34 @@ class Test(LaygoBase):
         """
         return dict(
             config='laygo configuration dictionary.',
+            w='nmos width.',
+            threshold='nmos threshold.',
             guard_ring_nf='number of guard ring fingers.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        self.set_row_types(['nch'], ['R0'], ['lvt'], True, 15, guard_ring_nf=self.params['guard_ring_nf'])
-        self.add_laygo_primitive('fg2d', loc=(0, 0), nx=3, spx=1)
-        self.add_laygo_primitive('fg2d', loc=(3, 0), split_s=True)
-        self.add_laygo_primitive('stack2d', loc=(4, 0), nx=2, spx=1)
-        self.add_laygo_primitive('fg2d', loc=(6, 0), split_s=True)
-        self.add_laygo_primitive('fg2d', loc=(7, 0), nx=3, spx=1)
-        self.set_laygo_size()
+        w = self.params['w']
+        w_sub = self.params['config']['w_sub']
+        threshold = self.params['threshold']
+        guard_ring_nf = self.params['guard_ring_nf']
+
+        self.set_row_types(['ptap', 'nch', 'ptap'], [w_sub, w, w_sub], ['R0', 'R0', 'MX'],
+                           [threshold] * 3, True, 15, [0, 1, 0], [0, 1, 0], [1, 1, 1], guard_ring_nf=guard_ring_nf)
+
+        self.add_laygo_primitive('fg2d', loc=(0, 1), nx=2, spx=1)
+        self.add_laygo_primitive('stack2d', loc=(2, 1))
+        self.add_laygo_primitive('fg2s', loc=(4, 1), nx=2, spx=1)
+        self.add_laygo_primitive('stack2s', loc=(6, 1))
+        self.add_laygo_primitive('sub', loc=(7 + self.min_sub_space, 1))
+        tot_blk = 7 + self.min_sub_space + self.sub_columns
+
+        self.add_laygo_primitive('sub', loc=(0, 0), nx=tot_blk, spx=1)
+        self.add_laygo_primitive('sub', loc=(0, 2), nx=tot_blk, spx=1)
+
+        self.set_laygo_size(num_col=tot_blk)
         self.fill_space()
-        self.draw_boundary_cells()
 
 
 def make_tdb(prj, target_lib, specs):
@@ -106,25 +118,13 @@ def generate(prj, specs):
     lib_name = 'AAAFOO'
 
     params = specs['params']
-    lch_vmsp_list = specs['swp_params']['lch_vmsp']
-    gr_nf_list = specs['swp_params']['guard_ring_nf']
 
     temp_db = make_tdb(prj, lib_name, specs)
 
-    temp_list = []
-    name_list = []
-    name_fmt = 'LAYGOBASE_L%s_gr%d'
-    for gr_nf in gr_nf_list:
-        params['guard_ring_nf'] = gr_nf
-        for lch, vm_sp in lch_vmsp_list:
-            config = copy.deepcopy(params['config'])
-            config['lch'] = lch
-            config['tr_spaces'][1] = vm_sp
-            params['config'] = config
-            temp_list.append(temp_db.new_template(params=params, temp_cls=Test, debug=False))
-            name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
-    print('creating layout')
-    temp_db.batch_layout(prj, temp_list, name_list)
+    template = temp_db.new_template(params=params, temp_cls=Test, debug=False)
+    name = 'LAYGOBASE'
+    print('create layout')
+    temp_db.batch_layout(prj, [template], [name])
     print('done')
 
 
