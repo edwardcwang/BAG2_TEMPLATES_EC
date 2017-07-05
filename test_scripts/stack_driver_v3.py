@@ -104,7 +104,7 @@ class StackDriver(LaygoBase):
 
         row_list = ['nch', 'ptap', 'ntap', 'pch']
         w_list = [w_n, w_sub, w_sub, w_p]
-        orient_list = ['R0', 'R0', 'R0', 'MX']
+        orient_list = ['R0', 'R0', 'MX', 'MX']
         thres_list = [threshold] * 4
 
         # compute number of tracks
@@ -144,7 +144,10 @@ class StackDriver(LaygoBase):
             ndidx = self.get_track_index(0, 'gb', 0)
 
         vss_idx = ndidx + (sup_width - 1) / 2
-        out_idx = vss_idx + sup_width + nsp
+        ptap_didx = self.get_track_index(1, 'ds', 0)
+        ntap_didx = self.get_track_index(2, 'ds', 0)
+        mid_idx = (2 * (ptap_didx + ntap_didx) // 2) / 2
+        out_idx = max(vss_idx + sup_width + nsp, mid_idx)
         vdd_idx = out_idx + (out_idx - vss_idx)
         vdd_edge_idx = vdd_idx + (sup_width - 1) / 2
         pdidx = self.get_track_index(3, 'gb', 0)
