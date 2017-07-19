@@ -7,10 +7,9 @@ Welcome to XBase's documentation!
 =================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 6
 
-
+   api/modules
 
 Indices and tables
 ==================
