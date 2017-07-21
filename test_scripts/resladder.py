@@ -40,8 +40,9 @@ if __name__ == '__main__':
     if 'bprj' not in local_dict:
         print('creating BAG project')
         bprj = BagProject()
-
-        # generate_core(bprj, specs)
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    # generate_core(bprj, specs)
+    generate(bprj, block_specs)

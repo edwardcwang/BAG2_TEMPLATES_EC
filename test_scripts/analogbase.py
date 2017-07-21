@@ -161,7 +161,6 @@ class AmpBase(SerdesRXBase):
             ntap_w=ntap_w,
             w_dict=w_dict,
             th_dict=th_dict,
-            gds_space=gds_space,
             pg_tracks=[hm_width],
             pds_tracks=[2 * hm_cur_width + diff_space],
             min_fg_sep=min_fg_sep,
@@ -214,6 +213,8 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    generate(bprj, block_specs)
