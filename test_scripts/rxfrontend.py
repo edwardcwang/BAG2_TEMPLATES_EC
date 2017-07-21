@@ -31,7 +31,7 @@ def rxcore(prj, specs):
     template = temp_db.new_template(params=rxcore_layout_params, temp_cls=RXCore, debug=False)
     print('total number of fingers: %d' % template.num_fingers)
     print('instantiating layout')
-    temp_db.instantiate_layout(prj, template, cell_name, debug=True)
+    temp_db.instantiate_layout(prj, template, top_cell_name=top_cell_name, debug=True)
 
     print('rxcore layout done.')
 
@@ -44,7 +44,7 @@ def rxcore_sch(prj, sch_params):
     print('designing schematics')
     dsn.design_specs(**sch_params)
     print('creating rxcore schematics')
-    dsn.implement_design(impl_lib, top_cell_name=cell_name, erase=True)
+    dsn.implement_design(impl_lib, top_cell_name=top_cell_name, erase=True)
 
     print('rxcore schematic done')
 
@@ -53,6 +53,7 @@ if __name__ == '__main__':
 
     lib_name = 'serdes_bm_templates'
     cell_name = 'rxcore_ffe1_dfe4_v2'
+    top_cell_name = 'RXCORE_TOP'
     impl_lib = 'AAAFOO'
 
     with open('test_specs/rxfrontend.yaml', 'r') as f:
