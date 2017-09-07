@@ -26,18 +26,18 @@
 """This script tests that AnalogBase draws rows of transistors properly."""
 
 
-from typing import Dict, Any, Set, Union
+from typing import Dict, Any, Set
 
 import yaml
 
 from bag import BagProject
 from bag.layout.routing import RoutingGrid
-from bag.layout.template import TemplateDB
+from bag.layout.template import TemplateDB, TemplateBase
 
-from abs_templates_ec.serdes.base import SerdesRXBase, SerdesRXBaseInfo
+from abs_templates_ec.analog_core import AnalogBase
 
 
-class AmpBase(SerdesRXBase):
+class AmpBase(AnalogBase):
     """A single diff amp.
 
     Parameters
@@ -58,39 +58,6 @@ class AmpBase(SerdesRXBase):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
         super(AmpBase, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
-        self._num_fg = -1
-
-    @property
-    def num_fingers(self):
-        # type: () -> int
-        return self._num_fg
-
-    @classmethod
-    def get_default_param_values(cls):
-        # type: () -> Dict[str, Any]
-        """Returns a dictionary containing default parameter values.
-
-        Override this method to define default parameter values.  As good practice,
-        you should avoid defining default values for technology-dependent parameters
-        (such as channel length, transistor width, etc.), but only define default
-        values for technology-independent parameters (such as number of tracks).
-
-        Returns
-        -------
-        default_params : dict[str, any]
-            dictionary of default parameter values.
-        """
-        return dict(
-            th_dict={},
-            nduml=4,
-            ndumr=4,
-            min_fg_sep=0,
-            gds_space=1,
-            diff_space=1,
-            hm_width=1,
-            hm_cur_width=-1,
-            guard_ring_nf=0,
-        )
 
     @classmethod
     def get_params_info(cls):
@@ -109,76 +76,95 @@ class AmpBase(SerdesRXBase):
             ntap_w='PMOS substrate width, in meters/number of fins.',
             w_dict='NMOS/PMOS width dictionary.',
             th_dict='NMOS/PMOS threshold flavor dictionary.',
-            fg_dict='NMOS/PMOS number of fingers dictionary.',
-            nduml='Number of left dummy fingers.',
-            ndumr='Number of right dummy fingers.',
-            min_fg_sep='Minimum separation between transistors.',
-            gds_space='number of tracks reserved as space between gate and drain/source tracks.',
-            diff_space='number of tracks reserved as space between differential tracks.',
-            hm_width='width of horizontal track wires.',
-            hm_cur_width='width of horizontal current track wires. If negative, defaults to hm_width.',
+            fg_tot='Total number of fingers.',
             guard_ring_nf='Width of the guard ring, in number of fingers.  0 to disable guard ring.',
+            top_layer='top layer ID.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        self._draw_layout_helper(**self.params)
+        lch = self.params['lch']
+        ptap_w = self.params['ptap_w']
+        ntap_w = self.params['ntap_w']
+        w_dict = self.params['w_dict']
+        th_dict = self.params['th_dict']
+        fg_tot = self.params['fg_tot']
+        guard_ring_nf = self.params['guard_ring_nf']
+        top_layer = self.params['top_layer']
 
-    def _draw_layout_helper(self,  # type: AmpBase
-                            lch,  # type: float
-                            ptap_w,  # type: Union[float, int]
-                            ntap_w,  # type: Union[float, int]
-                            w_dict,  # type: Dict[str, Union[float, int]]
-                            th_dict,  # type: Dict[str, str]
-                            fg_dict,  # type: Dict[str, int]
-                            nduml,  # type: int
-                            ndumr,  # type: int
-                            min_fg_sep,  # type: int
-                            gds_space,  # type: int
-                            diff_space,  # type: int
-                            hm_width,  # type: int
-                            hm_cur_width,  # type: int
-                            guard_ring_nf,  # type: int
-                            **kwargs
-                            ):
-        # type: (...) -> None
+        nw_list = [w_dict['n'], w_dict['n']]
+        pw_list = [w_dict['p']]
+        nth_list = [th_dict['n'], th_dict['n']]
+        pth_list = [th_dict['p']]
 
-        serdes_info = SerdesRXBaseInfo(self.grid, lch, guard_ring_nf, min_fg_sep=min_fg_sep)
-        diffamp_info = serdes_info.get_diffamp_info(fg_dict)
-        fg_tot = diffamp_info['fg_tot'] + nduml + ndumr
-        self._num_fg = fg_tot
+        self.draw_base(lch, fg_tot, ptap_w, ntap_w, nw_list, nth_list,
+                       pw_list, pth_list, ng_tracks=[1, 2], pg_tracks=[1],
+                       nds_tracks=[1, 1], pds_tracks=[1], guard_ring_nf=guard_ring_nf,
+                       top_layer=top_layer)
 
-        if hm_cur_width < 0:
-            hm_cur_width = hm_width  # type: int
 
-        # draw AnalogBase rows
-        # compute pmos/nmos gate/drain/source number of tracks
-        draw_params = dict(
-            lch=lch,
-            fg_tot=fg_tot,
-            ptap_w=ptap_w,
-            ntap_w=ntap_w,
-            w_dict=w_dict,
-            th_dict=th_dict,
-            pg_tracks=[hm_width],
-            pds_tracks=[2 * hm_cur_width + diff_space],
-            min_fg_sep=min_fg_sep,
-            guard_ring_nf=guard_ring_nf,
+class AmpBaseChain(TemplateBase):
+    """A single diff amp.
+
+    Parameters
+    ----------
+    temp_db : TemplateDB
+            the template database.
+    lib_name : str
+        the layout library name.
+    params : Dict[str, Any]
+        the parameter values.
+    used_names : Set[str]
+        a set of already used cell names.
+    **kwargs
+        dictionary of optional parameters.  See documentation of
+        :class:`bag.layout.template.TemplateBase` for details.
+    """
+
+    def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
+        # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
+        super(AmpBaseChain, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
+
+    @classmethod
+    def get_params_info(cls):
+        """Returns a dictionary containing parameter descriptions.
+
+        Override this method to return a dictionary from parameter names to descriptions.
+
+        Returns
+        -------
+        param_info : dict[str, str]
+            dictionary from parameter name to description.
+        """
+        return dict(
+            params1='Amp1 parameters.',
+            params2='Amp2 parameters.',
         )
-        ng_tracks = []
-        nds_tracks = []
-        for row_name in ['tail', 'en', 'sw', 'in', 'casc']:
-            if w_dict.get(row_name, -1) > 0:
-                if row_name == 'in':
-                    ng_tracks.append(2 * hm_width + diff_space)
-                else:
-                    ng_tracks.append(hm_width)
-                nds_tracks.append(hm_cur_width + gds_space)
-        draw_params['ng_tracks'] = ng_tracks
-        draw_params['nds_tracks'] = nds_tracks
 
-        self.draw_rows(**draw_params)
+    def draw_layout(self):
+        """Draw the layout of a dynamic latch chain.
+        """
+        params1 = self.params['params1']
+        params2 = self.params['params2']
+
+        master1 = self.new_template(params=params1, temp_cls=AmpBase)
+        master2 = self.new_template(params=params2, temp_cls=AmpBase)
+
+        # place inst1
+        inst1 = self.add_instance(master1, 'X1')
+        x0 = inst1.bound_box.right_unit
+
+        # place inst2
+        if master2.size is not None:
+            xblk, _ = self.grid.get_block_size(master2.top_layer, unit_mode=True)
+            x0 = (-x0 // xblk) * xblk
+        inst2 = self.add_instance(master2, 'X2', loc=(x0, 0), unit_mode=True)
+
+        # set size
+        my_top_layer = max(master1.mos_conn_layer + 2, master1.top_layer, master2.top_layer)
+        bbox = inst1.bound_box.merge(inst2.bound_box)
+        self.set_size_from_bound_box(my_top_layer, bbox, round_up=True)
 
 
 def make_tdb(prj, target_lib, specs):
@@ -194,14 +180,42 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    lib_name = 'AAAFOO'
-    cell_name = 'ANALOGBASE_TEST'
-
+    lib_name = 'AAAFOO_ANALOGBASE'
     params = specs['params']
-    temp_db = make_tdb(prj, lib_name, specs)
-    template = temp_db.new_template(params=params, temp_cls=AmpBase, debug=True)
-    temp_db.instantiate_layout(prj, template, cell_name, debug=True)
+    lch1, lch2 = specs['lch']
+    top_lay1, top_lay2 = specs['top_layer']
 
+    temp_db = make_tdb(prj, lib_name, specs)
+    name_list, temp_list = [], []
+    params1 = params.copy()
+    params1['lch'] = lch1
+    params1['top_layer'] = top_lay1
+    name_list.append('ANALOGBASE_TEST1')
+    temp_list.append(temp_db.new_template(params=params1, temp_cls=AmpBase))
+
+    params2 = params1.copy()
+    params2['lch'] = lch2
+    params2['top_layer'] = top_lay2
+    name_list.append('ANALOGBASE_TEST2')
+    temp_list.append(temp_db.new_template(params=params2, temp_cls=AmpBase))
+
+    """
+    params3 = dict(params1=params1, params2=params1)
+    name_list.append('ANALOGBASE_CHAIN_TEST1')
+    temp_list.append(temp_db.new_template(params=params3, temp_cls=AmpBaseChain))
+
+    params4 = dict(params1=params1, params2=params2)
+    name_list.append('ANALOGBASE_CHAIN_TEST2')
+    temp_list.append(temp_db.new_template(params=params4, temp_cls=AmpBaseChain))
+
+    params5 = dict(params1=params2, params2=params2)
+    name_list.append('ANALOGBASE_CHAIN_TEST3')
+    temp_list.append(temp_db.new_template(params=params5, temp_cls=AmpBaseChain))
+    """
+
+    print('creating layouts')
+    temp_db.batch_layout(prj, temp_list, name_list)
+    print('layout done.')
 
 if __name__ == '__main__':
 
