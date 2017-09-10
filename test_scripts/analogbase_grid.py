@@ -86,7 +86,10 @@ class AmpChain(TemplateBase):
 
         # place inst1
         inst1 = self.add_instance(master1, 'X1')
-        x0 = inst1.bound_box.right_unit
+        if master1.top_layer == master2.top_layer:
+            x0 = inst1.array_box.right_unit - master2.array_box.left_unit
+        else:
+            x0 = inst1.bound_box.right_unit
 
         # place inst2
         if master2.size is not None:
