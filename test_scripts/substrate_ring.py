@@ -93,7 +93,11 @@ class SubRingTest(TemplateBase):
         self.add_instance(amp_master, 'XA', loc=sub_master.blk_loc_unit, unit_mode=True)
 
         # set size
-        self.set_size_from_bound_box(sub_master.top_layer, sub_master.bound_box)
+        if sub_master.size is None:
+            self.prim_bound_box = sub_master.prim_bound_box
+            self.prim_top_layer = sub_master.prim_top_layer
+        else:
+            self.set_size_from_bound_box(sub_master.top_layer, sub_master.bound_box)
         self.array_box = sub_master.array_box
         self.add_cell_boundary(self.bound_box)
 
