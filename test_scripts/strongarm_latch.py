@@ -449,7 +449,7 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    lib_name = 'AAAFOO'
+    lib_name = 'AAAFOO_STRONGARM'
 
     params = specs['params']
 
@@ -471,7 +471,8 @@ if __name__ == '__main__':
     if 'bprj' not in local_dict:
         print('creating BAG project')
         bprj = BagProject()
-
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    generate(bprj, block_specs)
