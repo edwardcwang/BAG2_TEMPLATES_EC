@@ -85,20 +85,22 @@ class Test(LaygoBase):
         threshold = self.params['threshold']
         guard_ring_nf = self.params['guard_ring_nf']
 
+        tot_blk = 7 + self.min_sub_space + self.sub_columns
+
         self.set_row_types(['ptap', 'nch', 'ptap'], [w_sub, w, w_sub], ['R0', 'R0', 'MX'],
-                           [threshold] * 3, True, 15, [0, 1, 0], [0, 1, 0], [1, 1, 1], guard_ring_nf=guard_ring_nf)
+                           [threshold] * 3, True, 15, [0, 1, 0], [0, 1, 0], [1, 1, 1], guard_ring_nf=guard_ring_nf,
+                           num_col=tot_blk)
 
         self.add_laygo_primitive('fg2d', loc=(0, 1), nx=2, spx=1)
         self.add_laygo_primitive('stack2d', loc=(2, 1))
         self.add_laygo_primitive('fg2s', loc=(4, 1), nx=2, spx=1)
         self.add_laygo_primitive('stack2s', loc=(6, 1))
         self.add_laygo_primitive('sub', loc=(7 + self.min_sub_space, 1))
-        tot_blk = 7 + self.min_sub_space + self.sub_columns
 
         self.add_laygo_primitive('sub', loc=(0, 0), nx=tot_blk, spx=1)
         self.add_laygo_primitive('sub', loc=(0, 2), nx=tot_blk, spx=1)
 
-        self.set_laygo_size(num_col=tot_blk)
+        self.set_laygo_size()
         self.fill_space()
 
 
