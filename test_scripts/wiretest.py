@@ -29,7 +29,7 @@ import pprint
 from typing import Dict, Any, Set
 
 from bag import BagProject
-from bag.layout.routing import RoutingGrid
+from bag.layout.routing import RoutingGrid, TrackID
 from bag.layout.template import TemplateBase, TemplateDB
 
 
@@ -47,9 +47,9 @@ class WireTest(TemplateBase):
         warr2 = self.add_wires(3, 11.5, 0, 0.5)
         warr3 = self.add_wires(5, -0.5, 5.0, 6.0, width=4)
 
-        res1 = self.connect_with_via_stack(warr1, 6, 5)
-        res2 = self.connect_with_via_stack(warr2, 6, -5, tr_w_list=[1, 2, 3])
-        res3 = self.connect_with_via_stack(warr3, 3, -0.5)
+        res1 = self.connect_with_via_stack(warr1, TrackID(6, 5))
+        res2 = self.connect_with_via_stack(warr2, TrackID(6, -5, width=3), tr_w_list=[2, 2, -1])
+        res3 = self.connect_with_via_stack(warr3, TrackID(3, -0.5))
 
         pprint.pprint(res1)
         pprint.pprint(res2)
