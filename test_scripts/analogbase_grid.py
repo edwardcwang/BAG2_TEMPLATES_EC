@@ -81,8 +81,8 @@ class AmpChain(TemplateBase):
         params1 = self.params['params1']
         params2 = self.params['params2']
 
-        master1 = self.new_template(params=params1, temp_cls=DiffAmp)
-        master2 = self.new_template(params=params2, temp_cls=DiffAmp)
+        master1 = self.new_template(params=params1, temp_cls=DiffAmp)  # type: DiffAmp
+        master2 = self.new_template(params=params2, temp_cls=DiffAmp)  # type: DiffAmp
 
         # place inst1
         inst1 = self.add_instance(master1, 'X1')
