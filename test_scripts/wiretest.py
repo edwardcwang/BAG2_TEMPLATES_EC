@@ -56,10 +56,11 @@ class WireTest(TemplateBase):
         pprint.pprint(res3)
 
         warr1 = self.add_wires(9, -0.5, -2, 2, width=2)
-        self.connect_to_tracks(warr1, TrackID(10, 0, width=1))
-        self.connect_to_tracks(warr1, TrackID(10, 4, width=2))
-        self.connect_to_tracks(warr1, TrackID(10, 8, width=3))
-        self.connect_to_tracks(warr1, TrackID(10, 12, width=4))
+        self.connect_to_tracks(warr1, TrackID(10, 0, width=1), min_len_mode=0)
+        self.connect_to_tracks(warr1, TrackID(10, 4, width=2), min_len_mode=0)
+        self.connect_to_tracks(warr1, TrackID(10, 8, width=3), min_len_mode=0)
+        self.connect_to_tracks(warr1, TrackID(10, 12, width=4), min_len_mode=0)
+        self.connect_to_tracks(warr1, TrackID(10, 20, width=5), min_len_mode=0)
 
 
 def make_tdb(prj, target_lib):
