@@ -55,11 +55,17 @@ class WireTest(TemplateBase):
         pprint.pprint(res2)
         pprint.pprint(res3)
 
+        warr1 = self.add_wires(9, -0.5, -2, 2, width=2)
+        self.connect_to_tracks(warr1, TrackID(10, 0, width=1))
+        self.connect_to_tracks(warr1, TrackID(10, 4, width=2))
+        self.connect_to_tracks(warr1, TrackID(10, 8, width=3))
+        self.connect_to_tracks(warr1, TrackID(10, 12, width=4))
+
 
 def make_tdb(prj, target_lib):
-    layers = [3, 4, 5, 6]
-    spaces = [0.1, 0.1, 0.2, 0.4]
-    widths = [0.1, 0.1, 0.2, 0.2]
+    layers = [3, 4, 5, 6, 7, 8, 9, 10]
+    spaces = [0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.4, 0.4]
+    widths = [0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.4, 0.4]
     bot_dir = 'y'
 
     routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir)
