@@ -39,6 +39,7 @@ def generate(prj, specs):
     temp_db.batch_layout(prj, temp_list, ['TERM'])
     print('done')
 
+
 if __name__ == '__main__':
 
     impl_lib = 'AAAFOO'
@@ -51,7 +52,9 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        # generate_core(bprj, specs)
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    # generate_core(bprj, specs)
+    generate(bprj, block_specs)
