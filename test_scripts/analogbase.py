@@ -72,11 +72,19 @@ class AmpBase(AnalogBase):
         """
         return dict(
             lch='channel length, in meters.',
+            fg_tot='Total number of fingers.',
             ptap_w='NMOS substrate width, in meters/number of fins.',
             ntap_w='PMOS substrate width, in meters/number of fins.',
-            w_dict='NMOS/PMOS width dictionary.',
-            th_dict='NMOS/PMOS threshold flavor dictionary.',
-            fg_tot='Total number of fingers.',
+            nw_list='NMOS width list',
+            nth_list='NMOS threshold list',
+            pw_list='PMOS width list',
+            pth_list='PMOS threshold list',
+            ng_tracks='NMOS gate tracks list',
+            nds_tracks='NMOS drain/source tracks list',
+            pg_tracks='PMOS gate tracks list',
+            pds_tracks='PMOS gate tracks list',
+            n_orientations='NMOS orientations.',
+            p_orientations='PMOS orientations',
             guard_ring_nf='Width of the guard ring, in number of fingers.  0 to disable guard ring.',
             top_layer='top layer ID.',
         )
@@ -84,24 +92,7 @@ class AmpBase(AnalogBase):
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        lch = self.params['lch']
-        ptap_w = self.params['ptap_w']
-        ntap_w = self.params['ntap_w']
-        w_dict = self.params['w_dict']
-        th_dict = self.params['th_dict']
-        fg_tot = self.params['fg_tot']
-        guard_ring_nf = self.params['guard_ring_nf']
-        top_layer = self.params['top_layer']
-
-        nw_list = [w_dict['n'], w_dict['n']]
-        pw_list = [w_dict['p']]
-        nth_list = [th_dict['n'], th_dict['n']]
-        pth_list = [th_dict['p']]
-
-        self.draw_base(lch, fg_tot, ptap_w, ntap_w, nw_list, nth_list,
-                       pw_list, pth_list, ng_tracks=[1, 2], pg_tracks=[1],
-                       nds_tracks=[1, 1], pds_tracks=[1], guard_ring_nf=guard_ring_nf,
-                       top_layer=top_layer)
+        self.draw_base(**self.params)
 
 
 def make_tdb(prj, target_lib, specs):
