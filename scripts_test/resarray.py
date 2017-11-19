@@ -2,11 +2,10 @@
 
 import yaml
 
-from bag import float_to_si_string
 from bag.core import BagProject
 from bag.layout import RoutingGrid, TemplateDB
 
-from abs_templates_ec.serdes.amplifier import DiffAmp
+from abs_templates_ec.resistor.core import TerminationCore, Termination
 
 
 def make_tdb(prj, target_lib, specs):
@@ -21,29 +20,31 @@ def make_tdb(prj, target_lib, specs):
     return tdb
 
 
+def generate_core(prj, specs):
+
+    temp_db = make_tdb(prj, impl_lib, specs)
+    params = specs['core_params']
+
+    temp_list = [temp_db.new_template(params=params, temp_cls=TerminationCore, debug=False), ]
+    temp_db.batch_layout(prj, temp_list, ['TERMCORE'])
+    print('done')
+
+
 def generate(prj, specs):
+
     temp_db = make_tdb(prj, impl_lib, specs)
     params = specs['params']
-    lch_list = specs['swp_params']['lch']
-    gr_nf_list = specs['swp_params']['guard_ring_nf']
 
-    temp_list = []
-    name_list = []
-    name_fmt = 'DIFFAMP_DIODE_DECAP_L%s_gr%d'
-    for gr_nf in gr_nf_list:
-        for lch in lch_list:
-            params['lch'] = lch
-            params['guard_ring_nf'] = gr_nf
-            temp_list.append(temp_db.new_template(params=params, temp_cls=DiffAmp, debug=False))
-            name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
-    temp_db.batch_layout(prj, temp_list, name_list)
+    temp_list = [temp_db.new_template(params=params, temp_cls=Termination, debug=False), ]
+    temp_db.batch_layout(prj, temp_list, ['TERM'])
     print('done')
+
 
 if __name__ == '__main__':
 
     impl_lib = 'AAAFOO'
 
-    with open('test_specs/diffamp_diode_decap.yaml', 'r') as f:
+    with open('specs_test/resarray.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
@@ -51,6 +52,9 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    # generate_core(bprj, specs)
+    generate(bprj, block_specs)

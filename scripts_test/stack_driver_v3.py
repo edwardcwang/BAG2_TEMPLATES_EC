@@ -391,7 +391,7 @@ def make_tdb(prj, target_lib, specs):
 def generate_unit(prj):
     lib_name = 'AAAFOO'
 
-    with open('test_specs/stack_driver_v3.yaml', 'r') as f:
+    with open('specs_test/stack_driver_v3.yaml', 'r') as f:
         specs = yaml.load(f)
 
     params = specs['params']
@@ -408,7 +408,7 @@ def generate_unit(prj):
 def generate_array(prj):
     lib_name = 'AAAFOO'
 
-    with open('test_specs/stack_driver_array.yaml', 'r') as f:
+    with open('specs_test/stack_driver_array.yaml', 'r') as f:
         specs = yaml.load(f)
 
     params = specs['params']

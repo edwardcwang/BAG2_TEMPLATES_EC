@@ -33,11 +33,12 @@ def generate_layout(prj, specs):
 
     return template.sch_params
 
+
 if __name__ == '__main__':
 
     impl_lib = 'AAAFOO'
 
-    with open('test_specs/rxcore.yaml', 'r') as f:
+    with open('specs_test/rxcore.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
@@ -45,6 +46,8 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        sch_params = generate_layout(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    sch_params = generate_layout(bprj, block_specs)

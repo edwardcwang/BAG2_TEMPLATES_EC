@@ -140,7 +140,7 @@ def generate(prj, specs):
 
 if __name__ == '__main__':
 
-    with open('test_specs/dnw_ring.yaml', 'r') as f:
+    with open('specs_test/dnw_ring.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

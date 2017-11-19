@@ -2,10 +2,11 @@
 
 import yaml
 
+from bag import float_to_si_string
 from bag.core import BagProject
 from bag.layout import RoutingGrid, TemplateDB
 
-from abs_templates_ec.passives.cap import MOMCapUnit
+from abs_templates_ec.serdes.amplifier import DiffAmp
 
 
 def make_tdb(prj, target_lib, specs):
@@ -21,20 +22,30 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    name = 'MOMCAP_UNIT'
-    params = specs['params']
-
     temp_db = make_tdb(prj, impl_lib, specs)
-    template = temp_db.new_template(params=params, temp_cls=MOMCapUnit, debug=False)
+    params = specs['params']
+    lch_list = specs['swp_params']['lch']
+    gr_nf_list = specs['swp_params']['guard_ring_nf']
+
+    temp_list = []
+    name_list = []
+    name_fmt = 'DIFFAMP_L%s_gr%d'
+    for gr_nf in gr_nf_list:
+        for lch in lch_list:
+            params['lch'] = lch
+            params['guard_ring_nf'] = gr_nf
+            temp_list.append(temp_db.new_template(params=params, temp_cls=DiffAmp, debug=False))
+            name_list.append(name_fmt % (float_to_si_string(lch), gr_nf))
     print('creating layout')
-    temp_db.batch_layout(prj, [template], [name])
+    temp_db.batch_layout(prj, temp_list, name_list)
     print('done')
 
 
 if __name__ == '__main__':
-    impl_lib = 'AAAFOO_MOMCAP'
 
-    with open('test_specs/momcap.yaml', 'r') as f:
+    impl_lib = 'AAAFOO'
+
+    with open('specs_test/diffamp.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

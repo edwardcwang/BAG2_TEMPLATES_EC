@@ -266,7 +266,7 @@ def generate(prj, specs):
 
 if __name__ == '__main__':
 
-    with open('test_specs/stack_driver.yaml', 'r') as f:
+    with open('specs_test/stack_driver.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
@@ -274,6 +274,8 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    generate(bprj, block_specs)

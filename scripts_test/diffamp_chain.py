@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
     impl_lib = 'AAAFOO'
 
-    with open('test_specs/diffamp.yaml', 'r') as f:
+    with open('specs_test/diffamp.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
@@ -142,6 +142,8 @@ if __name__ == '__main__':
         print('creating BAG project')
         bprj = BagProject()
 
-        generate(bprj, block_specs)
     else:
         print('loading BAG project')
+        bprj = local_dict['bprj']
+
+    generate(bprj, block_specs)

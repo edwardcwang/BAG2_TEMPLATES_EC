@@ -186,7 +186,7 @@ def generate(prj, specs):
 
 if __name__ == '__main__':
 
-    with open('test_specs/current_mirror.yaml', 'r') as f:
+    with open('specs_test/current_mirror.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

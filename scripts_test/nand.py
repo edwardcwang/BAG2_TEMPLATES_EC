@@ -25,7 +25,6 @@
 
 """This script tests that AnalogBase draws rows of transistors properly."""
 
-
 from typing import Dict, Any, Set
 
 import yaml
@@ -37,7 +36,7 @@ from bag.layout.template import TemplateDB
 from abs_templates_ec.laygo.core import LaygoBase
 
 
-class Test(LaygoBase):
+class NAND(LaygoBase):
     """A single diff amp.
 
     Parameters
@@ -57,7 +56,7 @@ class Test(LaygoBase):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
-        super(Test, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
+        super(NAND, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_params_info(cls):
@@ -72,35 +71,71 @@ class Test(LaygoBase):
         """
         return dict(
             config='laygo configuration dictionary.',
-            w='nmos width.',
-            threshold='nmos threshold.',
-            guard_ring_nf='number of guard ring fingers.',
+            threshold='transistor threshold flavor.',
+            draw_boundaries='True to draw boundaries.',
+            num_blk='number of driver segments.',
+            show_pins='True to draw pin geometries.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        w = self.params['w']
-        w_sub = self.params['config']['w_sub']
+
+        if not self.fg2d_s_short:
+            raise ValueError('This template current only works if source wires of fg2d are shorted.')
+
         threshold = self.params['threshold']
-        guard_ring_nf = self.params['guard_ring_nf']
+        draw_boundaries = self.params['draw_boundaries']
+        num_blk = self.params['num_blk']
+        show_pins = self.params['show_pins']
 
-        tot_blk = 7 + self.min_sub_space + self.sub_columns
+        row_list = ['ptap', 'nch', 'pch', 'ntap']
+        orient_list = ['R0', 'MX', 'R0', 'MX']
+        thres_list = [threshold] * 4
 
-        self.set_row_types(['ptap', 'nch', 'ptap'], [w_sub, w, w_sub], ['R0', 'R0', 'MX'],
-                           [threshold] * 3, True, 15, [0, 1, 0], [0, 1, 0], [1, 1, 1],
-                           guard_ring_nf=guard_ring_nf, num_col=tot_blk)
+        # compute number of tracks
+        # note: because we're using thick wires, we need to compute space needed to
+        # satisfy DRC rules
+        hm_layer = self.conn_layer + 1
+        num_g_tracks = [0, 0, 0, 0]
+        num_gb_tracks = [0, 0, 0, 0]
+        num_ds_tracks = [0, 0, 0, 0]
 
-        self.add_laygo_primitive('fg2d', loc=(0, 1), nx=2, spx=1)
-        self.add_laygo_primitive('stack2d', loc=(2, 1))
-        self.add_laygo_primitive('fg2s', loc=(4, 1), nx=2, spx=1)
-        self.add_laygo_primitive('stack2s', loc=(6, 1))
-        self.add_laygo_primitive('sub', loc=(7 + self.min_sub_space, 1))
+        # to draw special stack driver primitive, we need to enable dual_gate options.
+        options = dict(dual_gate=True)
+        row_kwargs = [{}, options, options, {}]
+        if draw_boundaries:
+            end_mode = 15
+        else:
+            end_mode = 0
 
-        self.add_laygo_primitive('sub', loc=(0, 0), nx=tot_blk, spx=1)
-        self.add_laygo_primitive('sub', loc=(0, 2), nx=tot_blk, spx=1)
+        # specify row types
+        self.set_row_types(row_list, orient_list, thres_list, draw_boundaries, end_mode,
+                           num_g_tracks, num_gb_tracks, num_ds_tracks, guard_ring_nf=0,
+                           row_kwargs=row_kwargs)
 
+        # determine total number of blocks
+        # draw nwell tap
+        row_idx = 3
+        nw_tap = self.add_laygo_primitive('sub', loc=(0, row_idx), nx=num_blk, spx=1)
+
+        # draw pmos row
+        row_idx = 2
+        pmos = self.add_laygo_primitive('dual_stack2s', loc=(0, row_idx), nx=num_blk, spx=1)
+
+        # draw nmos row
+        row_idx = 1
+        nmos = self.add_laygo_primitive('dual_stack2s', loc=(0, row_idx), nx=num_blk, spx=1)
+
+        # draw pwell tap
+        row_idx = 0
+        pw_tap = self.add_laygo_primitive('sub', loc=(0, row_idx), nx=num_blk, spx=1)
+
+        # compute overall block size
+        self.set_laygo_size(num_col=num_blk + 4)
         self.fill_space()
+        # draw boundaries and get guard ring power rail tracks
+        self.draw_boundary_cells()
 
 
 def make_tdb(prj, target_lib, specs):
@@ -116,14 +151,14 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    lib_name = 'AAAFOO_LAYGO'
+    lib_name = 'AAAFOO'
 
     params = specs['params']
 
     temp_db = make_tdb(prj, lib_name, specs)
 
-    template = temp_db.new_template(params=params, temp_cls=Test, debug=False)
-    name = 'LAYGOBASE'
+    template = temp_db.new_template(params=params, temp_cls=NAND, debug=False)
+    name = 'NAND_GATE'
     print('create layout')
     temp_db.batch_layout(prj, [template], [name])
     print('done')
@@ -131,7 +166,7 @@ def generate(prj, specs):
 
 if __name__ == '__main__':
 
-    with open('test_specs/laygobase.yaml', 'r') as f:
+    with open('specs_test/nand.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

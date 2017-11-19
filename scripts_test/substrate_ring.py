@@ -32,12 +32,13 @@ import yaml
 
 from bag import BagProject
 from bag.layout.routing import RoutingGrid
-from bag.layout.template import TemplateDB
+from bag.layout.template import TemplateDB, TemplateBase
 
-from abs_templates_ec.analog_core import AnalogBase
+from abs_templates_ec.serdes.amplifier import DiffAmp
+from abs_templates_ec.analog_core.substrate import SubstrateRing
 
 
-class AmpBase(AnalogBase):
+class SubRingTest(TemplateBase):
     """A single diff amp.
 
     Parameters
@@ -57,7 +58,7 @@ class AmpBase(AnalogBase):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
-        super(AmpBase, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
+        super(SubRingTest, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_params_info(cls):
@@ -71,28 +72,34 @@ class AmpBase(AnalogBase):
             dictionary from parameter name to description.
         """
         return dict(
-            lch='channel length, in meters.',
-            fg_tot='Total number of fingers.',
-            ptap_w='NMOS substrate width, in meters/number of fins.',
-            ntap_w='PMOS substrate width, in meters/number of fins.',
-            nw_list='NMOS width list',
-            nth_list='NMOS threshold list',
-            pw_list='PMOS width list',
-            pth_list='PMOS threshold list',
-            ng_tracks='NMOS gate tracks list',
-            nds_tracks='NMOS drain/source tracks list',
-            pg_tracks='PMOS gate tracks list',
-            pds_tracks='PMOS gate tracks list',
-            n_orientations='NMOS orientations.',
-            p_orientations='PMOS orientations',
-            guard_ring_nf='Width of the guard ring, in number of fingers.  0 to disable guard ring.',
-            top_layer='top layer ID.',
+            amp_params='amplifier parameters.',
+            sub_params='substrate ring parameters.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        self.draw_base(**self.params)
+        amp_params = self.params['amp_params']
+        sub_params = self.params['sub_params']
+
+        # make masters
+        amp_master = self.new_template(params=amp_params, temp_cls=DiffAmp)
+        sub_params['top_layer'] = amp_master.top_layer
+        sub_params['bound_box'] = amp_master.bound_box
+        sub_master = self.new_template(params=sub_params, temp_cls=SubstrateRing)
+
+        # place instances
+        self.add_instance(sub_master, 'XS')
+        self.add_instance(amp_master, 'XA', loc=sub_master.blk_loc_unit, unit_mode=True)
+
+        # set size
+        if sub_master.size is None:
+            self.prim_bound_box = sub_master.prim_bound_box
+            self.prim_top_layer = sub_master.prim_top_layer
+        else:
+            self.set_size_from_bound_box(sub_master.top_layer, sub_master.bound_box)
+        self.array_box = sub_master.array_box
+        self.add_cell_boundary(self.bound_box)
 
 
 def make_tdb(prj, target_lib, specs):
@@ -108,13 +115,33 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    lib_name = 'AAAFOO_ANALOGBASE'
-    params = specs['params']
+    lib_name = 'AAAFOO_SUBRING'
+    amp_params = specs['amp_params']
+    sub_params = specs['sub_params']
+    lch1, lch2 = specs['lch']
+    top_lay1, top_lay2 = specs['top_layer']
 
     temp_db = make_tdb(prj, lib_name, specs)
     name_list, temp_list = [], []
-    name_list.append('ANALOGBASE_TEST')
-    temp_list.append(temp_db.new_template(params=params, temp_cls=AmpBase))
+    amp_params1 = amp_params.copy()
+    amp_params1['lch'] = lch1
+    amp_params1['top_layer'] = top_lay1
+    name_list.append('ANALOGBASE_TEST1')
+    temp_list.append(temp_db.new_template(params=amp_params1, temp_cls=DiffAmp))
+
+    amp_params2 = amp_params.copy()
+    amp_params2['lch'] = lch2
+    amp_params2['top_layer'] = top_lay2
+    name_list.append('ANALOGBASE_TEST2')
+    temp_list.append(temp_db.new_template(params=amp_params2, temp_cls=DiffAmp))
+
+    params3 = dict(amp_params=amp_params1, sub_params=sub_params)
+    name_list.append('SUBRING_TEST1')
+    temp_list.append(temp_db.new_template(params=params3, temp_cls=SubRingTest))
+
+    params4 = dict(amp_params=amp_params2, sub_params=sub_params)
+    name_list.append('SUBRING_TEST2')
+    temp_list.append(temp_db.new_template(params=params4, temp_cls=SubRingTest))
 
     print('creating layouts')
     temp_db.batch_layout(prj, temp_list, name_list)
@@ -123,7 +150,7 @@ def generate(prj, specs):
 
 if __name__ == '__main__':
 
-    with open('test_specs/analogbase.yaml', 'r') as f:
+    with open('specs_test/substrate_ring.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

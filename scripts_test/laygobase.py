@@ -32,12 +32,12 @@ import yaml
 
 from bag import BagProject
 from bag.layout.routing import RoutingGrid
-from bag.layout.template import TemplateDB, TemplateBase
+from bag.layout.template import TemplateDB
 
-from abs_templates_ec.serdes.amplifier import DiffAmp
+from abs_templates_ec.laygo.core import LaygoBase
 
 
-class AmpChain(TemplateBase):
+class Test(LaygoBase):
     """A single diff amp.
 
     Parameters
@@ -57,7 +57,7 @@ class AmpChain(TemplateBase):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
-        super(AmpChain, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
+        super(Test, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_params_info(cls):
@@ -71,36 +71,36 @@ class AmpChain(TemplateBase):
             dictionary from parameter name to description.
         """
         return dict(
-            params1='Amp1 parameters.',
-            params2='Amp2 parameters.',
+            config='laygo configuration dictionary.',
+            w='nmos width.',
+            threshold='nmos threshold.',
+            guard_ring_nf='number of guard ring fingers.',
         )
 
     def draw_layout(self):
         """Draw the layout of a dynamic latch chain.
         """
-        params1 = self.params['params1']
-        params2 = self.params['params2']
+        w = self.params['w']
+        w_sub = self.params['config']['w_sub']
+        threshold = self.params['threshold']
+        guard_ring_nf = self.params['guard_ring_nf']
 
-        master1 = self.new_template(params=params1, temp_cls=DiffAmp)  # type: DiffAmp
-        master2 = self.new_template(params=params2, temp_cls=DiffAmp)  # type: DiffAmp
+        tot_blk = 7 + self.min_sub_space + self.sub_columns
 
-        # place inst1
-        inst1 = self.add_instance(master1, 'X1')
-        if master1.top_layer == master2.top_layer:
-            x0 = inst1.array_box.right_unit - master2.array_box.left_unit
-        else:
-            x0 = inst1.bound_box.right_unit
+        self.set_row_types(['ptap', 'nch', 'ptap'], [w_sub, w, w_sub], ['R0', 'R0', 'MX'],
+                           [threshold] * 3, True, 15, [0, 1, 0], [0, 1, 0], [1, 1, 1],
+                           guard_ring_nf=guard_ring_nf, num_col=tot_blk)
 
-        # place inst2
-        if master2.size is not None:
-            xblk, _ = self.grid.get_block_size(master2.top_layer, unit_mode=True)
-            x0 = -(-x0 // xblk) * xblk
-        inst2 = self.add_instance(master2, 'X2', loc=(x0, 0), unit_mode=True)
+        self.add_laygo_primitive('fg2d', loc=(0, 1), nx=2, spx=1)
+        self.add_laygo_primitive('stack2d', loc=(2, 1))
+        self.add_laygo_primitive('fg2s', loc=(4, 1), nx=2, spx=1)
+        self.add_laygo_primitive('stack2s', loc=(6, 1))
+        self.add_laygo_primitive('sub', loc=(7 + self.min_sub_space, 1))
 
-        # set size
-        my_top_layer = max(master1.mos_conn_layer + 2, master1.top_layer, master2.top_layer)
-        bbox = inst1.bound_box.merge(inst2.bound_box)
-        self.set_size_from_bound_box(my_top_layer, bbox, round_up=True)
+        self.add_laygo_primitive('sub', loc=(0, 0), nx=tot_blk, spx=1)
+        self.add_laygo_primitive('sub', loc=(0, 2), nx=tot_blk, spx=1)
+
+        self.fill_space()
 
 
 def make_tdb(prj, target_lib, specs):
@@ -116,45 +116,22 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate(prj, specs):
-    lib_name = 'AAAFOO_ANALOGBASE'
+    lib_name = 'AAAFOO_LAYGO'
+
     params = specs['params']
-    lch1, lch2 = specs['lch']
-    top_lay1, top_lay2 = specs['top_layer']
 
     temp_db = make_tdb(prj, lib_name, specs)
-    name_list, temp_list = [], []
-    params1 = params.copy()
-    params1['lch'] = lch1
-    params1['top_layer'] = top_lay1
-    name_list.append('ANALOGBASE_TEST1')
-    temp_list.append(temp_db.new_template(params=params1, temp_cls=DiffAmp))
 
-    params2 = params1.copy()
-    params2['lch'] = lch2
-    params2['top_layer'] = top_lay2
-    name_list.append('ANALOGBASE_TEST2')
-    temp_list.append(temp_db.new_template(params=params2, temp_cls=DiffAmp))
-
-    params3 = dict(params1=params1, params2=params1)
-    name_list.append('ANALOGBASE_CHAIN_TEST1')
-    temp_list.append(temp_db.new_template(params=params3, temp_cls=AmpChain))
-
-    params4 = dict(params1=params1, params2=params2)
-    name_list.append('ANALOGBASE_CHAIN_TEST2')
-    temp_list.append(temp_db.new_template(params=params4, temp_cls=AmpChain))
-
-    params5 = dict(params1=params2, params2=params2)
-    name_list.append('ANALOGBASE_CHAIN_TEST3')
-    temp_list.append(temp_db.new_template(params=params5, temp_cls=AmpChain))
-
-    print('creating layouts')
-    temp_db.batch_layout(prj, temp_list, name_list)
-    print('layout done.')
+    template = temp_db.new_template(params=params, temp_cls=Test, debug=False)
+    name = 'LAYGOBASE'
+    print('create layout')
+    temp_db.batch_layout(prj, [template], [name])
+    print('done')
 
 
 if __name__ == '__main__':
 
-    with open('test_specs/analogbase_grid.yaml', 'r') as f:
+    with open('specs_test/laygobase.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()

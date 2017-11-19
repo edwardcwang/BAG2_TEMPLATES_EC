@@ -56,7 +56,7 @@ if __name__ == '__main__':
     top_cell_name = 'RXCORE_TOP'
     impl_lib = 'AAAFOO'
 
-    with open('test_specs/rxfrontend.yaml', 'r') as f:
+    with open('specs_test/rxfrontend.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
