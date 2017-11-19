@@ -1,0 +1,24 @@
+
+routing_grid:
+  layers: [4, 5]
+  widths: [0.1, 0.1]
+  spaces: [0.1, 0.1]
+  bot_dir: 'x'
+
+params:
+  lch: 20.0e-9
+  fg_tot: 20
+  ptap_w: 4
+  ntap_w: 4
+  nw_list: [4, 4]
+  nth_list: ['standard', 'standard']
+  pw_list: [4]
+  pth_list: ['standard']
+  ng_tracks: [1, 1]
+  nds_tracks: [1, 1]
+  pg_tracks: [1]
+  pds_tracks: [1]
+  n_orientations: ['R0', 'R0']
+  p_orientations: ['MX']
+  guard_ring_nf: 0
+  top_layer: !!null
