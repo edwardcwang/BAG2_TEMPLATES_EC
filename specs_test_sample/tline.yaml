@@ -1,0 +1,13 @@
+routing_grid:
+  layers: [4, 5, 6, 7, 8, 9, 10]
+  spaces: [0.1, 0.1, 0.1, 0.5, 0.5, 0.5, 1.0]
+  widths: [0.1, 0.1, 0.1, 0.5, 0.5, 0.5, 1.0]
+  bot_dir: 'x'
+
+params:
+  points_list: [[0, 0], [40, 0], [60, 20], [60, 60], [80, 80], [120, 80]]
+  layer_id: 10
+  bridge_layer_id: 8
+  w_dict: {sig: 4.0, gnd: 8.0, bridge: 4.0}
+  sp_dict: {sig: 4.0, gnd: 8.0}
+  sep_bridge: 20.0
