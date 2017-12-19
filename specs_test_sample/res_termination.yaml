@@ -1,0 +1,31 @@
+routing_grid:
+  layers: [4, 5]
+  spaces: [0.2, 0.2]
+  widths: [0.2, 0.2]
+  bot_dir: 'y'
+
+core_params:
+  l: !!float 2e-6
+  w: !!float 0.4e-6
+  res_type: standard
+  sub_type: ntap
+  threshold: standard
+  nx: 4
+  ny: 4
+  em_specs: {}
+  ext_dir: ""
+  show_pins: True
+
+params:
+  l: !!float 2e-6
+  w: !!float 0.4e-6
+  sub_lch: !!float 20e-9
+  sub_w: !!float 0.4e-6
+  res_type: standard
+  sub_type: ntap
+  threshold: standard
+  nx: 4
+  ny: 4
+  em_specs: {}
+  ext_dir: ""
+  well_end_mode: 1
