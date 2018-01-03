@@ -288,6 +288,10 @@ mos:
         !!python/tuple [th_p, drawing]: [10, 50]
 
 resistor:
+  # bottom horizontal routing layer ID
+  bot_layer: 2
+  # the resistor core block pitch in resolution units
+  block_pitch: !!python/tuple [1, 1]
   # space between PO and dummy PO
   po_sp: 50
   # space between implant layer and OD.  Used only if OD cannot be inside resistor implant.
