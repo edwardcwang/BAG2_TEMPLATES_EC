@@ -182,7 +182,6 @@ mos:
   # this is used to figure out where to separate implant layers in extension blocks,
   # if None, this rule is ignored.
   imp_po_ency: !!null
-  sub_ring_lch: !!float 50e-9
   nw_dnw_ovl: 100
   nw_dnw_ext: 100
   # Minimum number of fingers for decap connection.
