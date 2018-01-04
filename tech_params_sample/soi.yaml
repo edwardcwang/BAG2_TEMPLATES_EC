@@ -1,5 +1,5 @@
 # PDK library name.
-tech_lib: planar_generic
+tech_lib: soi_generic
 # layout unit, in meters.
 layout_unit: 1e-6
 # layout resolution, in layout units.
@@ -92,7 +92,7 @@ idc_em_scale:
 # via enclosure/spacing rules
 via:
   # via name
-  vx:
+  x:
     # via dimension type.  Support 'square' or 'hrect'.  vertical
     # rectangle is derived from 'hrect'.
     square:
@@ -148,8 +148,8 @@ dnw_margins:
   adjacent: 400
   compact: 0
 
-# transistor DRC rules.
-mos:
+# body-connected transistor DRC rules.
+mos_analog:
   # OD quantization pitch.
   mos_pitch: 1
   # number of fingers in an AnalogBase row must be multiples of this number.
@@ -167,106 +167,78 @@ mos:
   # dummy connection layer.
   dum_layer: 1
   # AnalogBase vertical connection layer.
-  ana_conn_layer: 3
-  # LaygoBase vertical connection layer
-  dig_conn_layer: 1
-  # LaygoBase top layer.
-  dig_top_layer: 2
-  # horizontal enclosure of implant layers over OD
-  imp_od_encx: 100
-  # maximum space between OD rows.
-  sp_od_max: 100
-  # minimum OD density
-  od_min_density: 0.20
-  # dummy OD height range.
-  od_fill_w: !!python/tuple [100, 200]
-  # implant layers vertical enclosure of active.
-  # this is used to figure out where to separate implant layers in extension blocks,
-  imp_od_ency: 100
-  # implant layers vertical enclosure of poly.
-  # this is used to figure out where to separate implant layers in extension blocks,
-  # if None, this rule is ignored.
-  imp_po_ency: !!null
-  # overlap between NW layer and DNW layer.
-  nw_dnw_ovl: 100
-  # extension of NW layer over DNW layer.
-  nw_dnw_ext: 100
-  # Minimum number of fingers for decap connection.
-  min_fg_decap:
-    lch: [.inf]
-    val: [2]
-  # Minimum number of fingers between separate AnalogMosConn.
-  min_fg_sep:
-    lch: [.inf]
-    val: [2]
+  conn_layer: 3
   # space between AnalogBase implant and boundary.
   edge_margin:
     lch: [.inf]
     val: [150]
-  # minimum number of fingers needed for left/right guard ring.
-  fg_gr_min:
-    lch: [.inf]
-    val: [2]
-  # minimum number of fingers in outer edge block.
-  fg_outer_min:
-    lch: [.inf]
-    val: [1]
   # source/drain pitch related constants.
   # source/drain pitch is computed as val[0] + val[1] * lch_unit
   sd_pitch_constants:
     lch: [.inf]
-    val: [[10, 1]]
+    val: [[10, 0]]
   # number of source/drain junction per vertical track.
   num_sd_per_track:
     lch: [.inf]
     val: [1]
+  # change in OD width due to the T-shape poly gate.
+  w_delta:
+    lch: [.inf]
+    val: [0]
   # gate vertical wire width on each layer.
   w_conn_g:
     lch: [.inf]
     val:
-      - [-1, 10, 10, 10]
+      - [10, 10, 10, 10]
   # drain vertical wire width on each layer.
   w_conn_d:
     lch: [.inf]
     val:
       - [10, 10, 10, 10]
-  # space between PO
-  sp_po:
+  sp_bpo_v0:
+    lch: [.inf]
+    val: [100]
+  # space between gate and body M1 wire.
+  sp_gb_m1:
     lch: [.inf]
     val: [10]
-  # vertical space between gate/drain metal wires.
-  sp_gd_mx:
+  # space between gate and body PO.
+  sp_gb_po:
+    lch: [.inf]
+    val: [10]
+  # space between gate/drain M1 wires.
+  sp_gd_m1:
     lch: [.inf]
     val: [10]
   # space between gate wire and OD
   sp_gd_od:
     lch: [.inf]
     val: [10]
-  # PO extension over OD
-  po_od_exty:
+  # body OD height.
+  h_body:
     lch: [.inf]
-    val: [10]
-  # OD horizontal extension over PO
-  po_od_extx:
+    val: [100]
+  # body OD width.
+  w_body:
     lch: [.inf]
-    val: [10]
-  # minimum PO height
-  po_h_min:
+    val: [100]
+  # body PO coordinate.
+  body_po_loc:
     lch: [.inf]
-    val: [10]
+    val: [[0, 100]]
+  # horizontal extension of PO over body OD
+  body_po_extx:
+    lch: [.inf]
+    val: [100]
   # distance between substrate M1 left edge to
   # center of left-most source-drain junction.
   sub_m1_extx:
     lch: [.inf]
     val: [10]
-  # substrate M1 via line-end enclsoure
-  sub_m1_enc_le:
+  # number of via to draw on body OD
+  num_via_body:
     lch: [.inf]
-    val: [10]
-  # dummy M1 horizontal enclosure.
-  dum_m1_encx:
-    lch: [.inf]
-    val: [10]
+    val: [2]
   # gate via parameters
   via_g:
     dim:
@@ -285,35 +257,47 @@ mos:
     sp: [10, 10, 10]
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
-  # DNW layer names
-  dnw_layers:
-    - !!python/tuple [dnw, drawing]
-  # implant layer names for each transistor/substrate tap type.
+  # body via parameters
+  via_b:
+    dim: [10, 10]
+    sp: 10
+    enc1: [10, 10, 10, 10]
+    enc2: [10, 10, 10, 10]
+  # gate connection layers.
+  gate_layers: [!!python/tuple [gate, drawing]]
+  # implant layer names for each transistor type
   imp_layers:
     nch:
-      !!python/tuple [np, drawing]: [10, 50]
+      !!python/tuple [np, drawing]: [['d', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body1, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body2, drawing]: [['b', 0, 10], ['b', 0, 10]]
     pch:
-      !!python/tuple [pp, drawing]: [10, 50]
-      !!python/tuple [nw, drawing]: [10, 50]
-    ptap:
-      !!python/tuple [pp, drawing]: [10, 50]
-    ntap:
-      !!python/tuple [np, drawing]: [10, 50]
-      !!python/tuple [nw, drawing]: [10, 50]
-  # threshold layer names for each transistor/substrate tap type.
+      !!python/tuple [pp, drawing]: [['d', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body1, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body2, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [nw, drawing]: [['d', 0, 10], ['b', 0, 10]]
+  # threshold layer for each transistor type.
   thres_layers:
     nch:
       standard:
-        !!python/tuple [th_n, drawing]: [10, 50]
+        !!python/tuple [th_n, drawing]: [['d', 0, 10], ['b', 0, 10]]
     pch:
       standard:
-        !!python/tuple [th_p, drawing]: [10, 50]
-    ptap:
-      standard:
-        !!python/tuple [th_n, drawing]: [10, 50]
-    ntap:
-      standard:
-        !!python/tuple [th_p, drawing]: [10, 50]
+        !!python/tuple [th_p, drawing]: [['d', 0, 10], ['b', 0, 10]]
+  # space needed between implant layers.
+  imp_spaces:
+    !!python/tuple [nw, drawing]: [100, 2]
+    !!python/tuple [body1, drawing]: [50, 1]
+    !!python/tuple [body2, drawing]: [50, 1]
+    !!python/tuple [np, drawing]: [50, 1]
+    !!python/tuple [pp, drawing]: [50, 1]
+    !!python/tuple [od, drawing]: [100, 0]
+    # spacing between different implant/threshold layers
+    # first element must be lexicographically less than second element.
+    !!python/tuple [!!python/tuple [body1, drawing], !!python/tuple [body2, drawing]]: 50
+    # can specify spacing between implant and OD of NMOS or PMOS by using the
+    # special purpose bag_nch or bag_pch
+    !!python/tuple [!!python/tuple [nw, drawing], !!python/tuple [od, bag_nch]]: 50
 
 # PO resistor DRC rules
 resistor:
@@ -332,8 +316,8 @@ resistor:
   # exact extension of PO over RPO.  If negative, this parameter is ignored.
   po_rpo_ext_exact: -1
   # maximum PO density (recommended)
-  po_max_density: 0.55
-  # dummy PO minimum width/height
+  po_max_density: 0.5
+  # dummy PO minimum width/height.  If 0, then will not draw dummy PO in edge blocks.
   dpo_dim_min: [10, 10]
   # dummy OD minimum width/height
   od_dim_min: [10, 50]
@@ -342,7 +326,7 @@ resistor:
   # dummy OD space
   od_sp: 10
   # minimum OD density
-  od_min_density: 0.20
+  od_min_density: 0.2
   # CO width
   co_w: 10
   # CO spacing
@@ -358,18 +342,20 @@ resistor:
   # extension of RPO on PO
   rpo_extx: 50
   # margin needed on the edges
-  edge_margin: 48
-  # enclosure of implant layers in horizontal/vertical direction
+  edge_margin: 50
+  # enclosure of implant layers for PO in horizontal/vertical direction
   imp_enc: [50, 50]
   # resistor implant layers list
   imp_layers:
-    nch: {}
+    nch:
+      !!python/tuple [np, drawing]: [10, 50]
     pch:
       !!python/tuple [pp, drawing]: [10, 50]
       !!python/tuple [nw, drawing]: [10, 50]
     ptap:
       !!python/tuple [pp, drawing]: [10, 50]
     ntap:
+      !!python/tuple [np, drawing]: [10, 50]
       !!python/tuple [nw, drawing]: [10, 50]
   # resistor layers list
   res_layers:
@@ -385,7 +371,6 @@ resistor:
       min_nsq: 1
       w_bounds: !!python/tuple [10, 20]
       l_bounds: !!python/tuple [20, 50]
-      need_rpo: True
       # True to draw RPO layer, which is a layer that makes
       # PO resistive.
       need_rpo: True
