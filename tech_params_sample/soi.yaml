@@ -167,7 +167,19 @@ mos_analog:
   # dummy connection layer.
   dum_layer: 1
   # AnalogBase vertical connection layer.
-  conn_layer: 3
+  ana_conn_layer: 3
+  # LaygoBase vertical connection layer
+  dig_conn_layer: -1
+  # LaygoBase top layer.
+  dig_top_layer: -1
+  # Minimum number of fingers for decap connection.
+  min_fg_decap:
+    lch: [.inf]
+    val: [2]
+  # Minimum number of fingers between separate AnalogMosConn.
+  min_fg_sep:
+    lch: [.inf]
+    val: [2]
   # space between AnalogBase implant and boundary.
   edge_margin:
     lch: [.inf]
