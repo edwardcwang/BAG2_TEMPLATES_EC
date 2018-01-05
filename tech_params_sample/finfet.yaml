@@ -150,8 +150,16 @@ dnw_margins:
 
 # transistor DRC rules.
 mos:
+  # fin height
+  fin_h: 4
+  # CPO to OD spacing
+  cpo_od_sp: 10
+  # CPO to CPO vertical spacing
+  cpo_spy: 10
+  # maximum space between OD rows.
+  od_sp_nfin_max: 10
   # OD quantization pitch.
-  mos_pitch: 1
+  mos_pitch: 50
   # number of fingers in an AnalogBase row must be multiples of this number.
   analog_unit_fg: 2
   # True if zero height AnalogMosExt should be drawn.
@@ -174,12 +182,10 @@ mos:
   dig_top_layer: 2
   # horizontal enclosure of implant layers over OD
   imp_od_encx: 100
-  # maximum space between OD rows.
-  sp_od_max: 100
   # minimum OD density
   od_min_density: 0.20
-  # dummy OD height range.
-  od_fill_w: !!python/tuple [100, 200]
+  # dummy OD height range, in number of fins
+  od_fill_w: !!python/tuple [1, 10]
   # implant layers vertical enclosure of active.
   # this is used to figure out where to separate implant layers in extension blocks,
   imp_od_ency: 100
@@ -191,6 +197,30 @@ mos:
   nw_dnw_ovl: 100
   # extension of NW layer over DNW layer.
   nw_dnw_ext: 100
+  # horizontal extension of CPO beyond PO
+  cpo_po_extx:
+    lch: [.inf]
+    val: [50]
+  # normal CPO height
+  cpo_h:
+    lch: [.inf]
+    val: [10]
+  # MD width
+  md_w:
+    lch: [.inf]
+    val: [10]
+  # vertical extension of MD over OD
+  md_od_exty:
+    lch: [.inf]
+    val: [10]
+  # vertical space bewteen MD
+  md_spy:
+    lch: [.inf]
+    val: [10]
+  # minimum height of MD
+  md_h_min:
+    lch: [.inf]
+    val: [10]
   # Minimum number of fingers for decap connection.
   min_fg_decap:
     lch: [.inf]
@@ -211,10 +241,6 @@ mos:
   fg_outer_min:
     lch: [.inf]
     val: [1]
-  # horizontal extension of CPO beyond PO
-  cpo_po_extx:
-    lch: [.inf]
-    val: [50]
   # source/drain pitch related constants.
   # source/drain pitch is computed as val[0] + val[1] * lch_unit
   sd_pitch_constants:
