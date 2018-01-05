@@ -152,10 +152,6 @@ dnw_margins:
 mos:
   # fin height
   fin_h: 4
-  # CPO to OD spacing
-  cpo_od_sp: 10
-  # CPO to CPO vertical spacing
-  cpo_spy: 10
   # maximum space between OD rows.
   od_sp_nfin_max: 10
   # OD quantization pitch.
@@ -201,6 +197,14 @@ mos:
   cpo_po_extx:
     lch: [.inf]
     val: [50]
+  # CPO to OD spacing
+  cpo_od_sp:
+    lch: [.inf]
+    val: [50]
+  # CPO to CPO vertical spacing
+  cpo_spy:
+    lch: [.inf]
+    val: [10]
   # normal CPO height
   cpo_h:
     lch: [.inf]
