@@ -17,6 +17,8 @@ mos_layer_table:
   OD: !!python/tuple ['OD', 'drawing']
   # dummy active
   OD_dummy: !!python/tuple ['OD', 'dummy']
+  # cut poly
+  CPO: !!python/tuple ['CutPoly', 'drawing']
 
 # mapping from resistor layer name to actual layer/purpose tuple
 res_layer_table:
