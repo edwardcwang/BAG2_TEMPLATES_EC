@@ -154,8 +154,10 @@ dnw_margins:
 mos:
   # fin height
   fin_h: 4
-  # maximum space between OD rows.
-  od_sp_nfin_max: 10
+  # minimum vertical space between OD, in resolution units
+  od_spy_min: 10
+  # maximum vertical space between OD, in resolution units
+  od_spy_max: 1000
   # OD quantization pitch.
   mos_pitch: 50
   # number of fingers in an AnalogBase row must be multiples of this number.
