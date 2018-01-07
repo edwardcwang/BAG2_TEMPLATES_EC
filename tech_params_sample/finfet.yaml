@@ -154,6 +154,8 @@ dnw_margins:
 mos:
   # fin height
   fin_h: 4
+  # minimum horizontal space between OD, in resolution units
+  od_spx: 10
   # minimum vertical space between OD, in resolution units
   od_spy_min: 10
   # maximum vertical space between OD, in resolution units
@@ -185,14 +187,14 @@ mos:
   # minimum OD density
   od_min_density: 0.20
   # dummy OD height range, in number of fins
-  od_fill_w: !!python/tuple [1, 10]
+  od_fill_h: !!python/tuple [1, 10]
+  # dummy OD maximum width, in resolution units.
+  od_fill_w_max: !!null
   # implant layers vertical enclosure of active.
   # this is used to figure out where to separate implant layers in extension blocks,
   imp_od_ency: 100
   # implant layers vertical enclosure of poly.
-  # this is used to figure out where to separate implant layers in extension blocks,
-  # if None, this rule is ignored.
-  imp_po_ency: !!null
+  imp_po_ency: 100
   # overlap between NW layer and DNW layer.
   nw_dnw_ovl: 100
   # extension of NW layer over DNW layer.
