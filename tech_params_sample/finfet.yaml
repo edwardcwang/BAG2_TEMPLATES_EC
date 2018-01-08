@@ -13,10 +13,16 @@ mos_layer_table:
   PO: !!python/tuple ['PO', 'drawing']
   # dummy poly
   PO_dummy: !!python/tuple ['PO', 'dummy']
+  # Poly-on-OD-edge layer
+  PODE: !!python/tuple ['PODE', 'drawing']
   # active
   OD: !!python/tuple ['OD', 'drawing']
   # dummy active
   OD_dummy: !!python/tuple ['OD', 'dummy']
+  # OD connection metal
+  MD: !!python/tuple ['MD', 'drawing']
+  # dummy OD connection metal
+  MD_dummy: !!python/tuple ['MD', 'dummy']
   # cut poly
   CPO: !!python/tuple ['CutPoly', 'drawing']
   # fin boundary layer
