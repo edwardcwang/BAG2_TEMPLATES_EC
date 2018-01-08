@@ -19,6 +19,8 @@ mos_layer_table:
   OD_dummy: !!python/tuple ['OD', 'dummy']
   # cut poly
   CPO: !!python/tuple ['CutPoly', 'drawing']
+  # fin boundary layer
+  FB: !!python/tuple ['FinBound', 'drawing']
 
 # mapping from resistor layer name to actual layer/purpose tuple
 res_layer_table:
@@ -201,6 +203,10 @@ mos:
   nw_dnw_ext: 100
   # horizontal extension of CPO beyond PO
   cpo_po_extx:
+    lch: [.inf]
+    val: [50]
+  # vertical enclosure of CPO on PO
+  cpo_po_ency:
     lch: [.inf]
     val: [50]
   # CPO to OD spacing
