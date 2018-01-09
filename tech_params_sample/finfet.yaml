@@ -201,8 +201,6 @@ mos:
   # implant layers vertical enclosure of active.
   # this is used to figure out where to separate implant layers in extension blocks,
   imp_od_ency: 100
-  # implant layers vertical enclosure of poly.
-  imp_po_ency: 100
   # overlap between NW layer and DNW layer.
   nw_dnw_ovl: 100
   # extension of NW layer over DNW layer.
@@ -272,51 +270,8 @@ mos:
   num_sd_per_track:
     lch: [.inf]
     val: [1]
-  # gate vertical wire width on each layer.
-  w_conn_g:
-    lch: [.inf]
-    val:
-      - [-1, 10, 10, 10]
-  # drain vertical wire width on each layer.
-  w_conn_d:
-    lch: [.inf]
-    val:
-      - [10, 10, 10, 10]
-  # space between PO
-  sp_po:
-    lch: [.inf]
-    val: [10]
-  # vertical space between gate/drain metal wires.
-  sp_gd_mx:
-    lch: [.inf]
-    val: [10]
-  # space between gate wire and OD
-  sp_gd_od:
-    lch: [.inf]
-    val: [10]
   # PO extension over OD
   po_od_exty:
-    lch: [.inf]
-    val: [10]
-  # OD horizontal extension over PO
-  po_od_extx:
-    lch: [.inf]
-    val: [10]
-  # minimum PO height
-  po_h_min:
-    lch: [.inf]
-    val: [10]
-  # distance between substrate M1 left edge to
-  # center of left-most source-drain junction.
-  sub_m1_extx:
-    lch: [.inf]
-    val: [10]
-  # substrate M1 via line-end enclsoure
-  sub_m1_enc_le:
-    lch: [.inf]
-    val: [10]
-  # dummy M1 horizontal enclosure.
-  dum_m1_encx:
     lch: [.inf]
     val: [10]
   # gate via parameters
