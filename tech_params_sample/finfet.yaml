@@ -10,23 +10,23 @@ use_flip_parity: True
 # mapping from transistor layer name to actual layer/purpose tuple
 mos_layer_table:
   # poly
-  PO: !!python/tuple ['PO', 'drawing']
+  PO: !!python/tuple ['Poly', 'drawing']
   # dummy poly
-  PO_dummy: !!python/tuple ['PO', 'dummy']
+  PO_dummy: !!python/tuple ['Poly', 'dummy']
   # Poly-on-OD-edge layer
-  PODE: !!python/tuple ['PODE', 'drawing']
+  PODE: !!python/tuple ['Poly', 'edge']
   # active
-  OD: !!python/tuple ['OD', 'drawing']
+  OD: !!python/tuple ['Active', 'drawing']
   # dummy active
-  OD_dummy: !!python/tuple ['OD', 'dummy']
+  OD_dummy: !!python/tuple ['Active', 'dummy']
   # OD connection metal
-  MD: !!python/tuple ['MD', 'drawing']
+  MD: !!python/tuple ['LiAct', 'drawing']
   # dummy OD connection metal
-  MD_dummy: !!python/tuple ['MD', 'dummy']
+  MD_dummy: !!python/tuple ['LiAct', 'drawing']
   # cut poly
   CPO: !!python/tuple ['CutPoly', 'drawing']
   # fin boundary layer
-  FB: !!python/tuple ['FinBound', 'drawing']
+  FB: !!python/tuple ['FinArea', 'drawing']
 
 # mapping from resistor layer name to actual layer/purpose tuple
 res_layer_table:
@@ -77,8 +77,8 @@ via_name:
 
 # mapping from tuple of via layers to via ID.
 via_id:
-  !!python/tuple [!!python/tuple ['PO', 'drawing'], 'M1']: M1_PO
-  !!python/tuple [!!python/tuple ['OD', 'drawing'], 'M1']: M1_OD
+  !!python/tuple [!!python/tuple ['Poly', 'drawing'], 'M1']: M1_LiPo
+  !!python/tuple [!!python/tuple ['Active', 'drawing'], 'M1']: M1_LiAct
   !!python/tuple ['M1', 'M2']: M2_M1
   !!python/tuple ['M2', 'M3']: M3_M2
   !!python/tuple ['M3', 'M4']: M4_M3
@@ -118,7 +118,6 @@ via:
       # via bottom enclosure rules.  If empty, then assume it's the same
       # as top enclosure.
       bot_enc:
-      # via top enclosure rules.
       top_enc:
         # via enclosure rule as function of wire width.
         w_list: [10, .inf]
@@ -147,9 +146,13 @@ sp_le_min:
 # minimum length/minimum area rules.
 len_min:
   x:
+    # list of widths
     w_list: [10, 20, .inf]
+    # list of (minimum area, minimum length) tuples corresponding to each width.
     w_al_list: [[1000, 10], [2000, 20], [3000, 30]]
+    # list of minimum dimension values
     md_list: [10, 20, .inf]
+    # list of (minimum area, minimum length) tuples corresponding to each min-dim value.
     md_al_list: [[3000, 10], [2000, 20], [1000, 30]]
 
 # DNW margin rules.
@@ -165,7 +168,7 @@ mos:
   # minimum horizontal space between OD, in resolution units
   od_spx: 10
   # minimum vertical space between OD, in resolution units
-  od_spy_min: 10
+  od_spy: 10
   # maximum vertical space between OD, in resolution units
   od_spy_max: 1000
   # OD quantization pitch.
@@ -205,6 +208,18 @@ mos:
   nw_dnw_ovl: 100
   # extension of NW layer over DNW layer.
   nw_dnw_ext: 100
+  # space between MP and CPO
+  mp_cpo_sp: 10
+  # MP height
+  mp_h: 50
+  # MP and PO overlap
+  mp_po_ovl: 10
+  # space bewteen MP and MD
+  mp_md_sp: 10
+  # vertical space between MP
+  mp_spy: 50
+  # drain/source M2 space
+  ds_m2_sp: 50
   # horizontal extension of CPO beyond PO
   cpo_po_extx:
     lch: [.inf]
@@ -220,27 +235,27 @@ mos:
   # CPO to CPO vertical spacing
   cpo_spy:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # normal CPO height
   cpo_h:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # MD width
   md_w:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # vertical extension of MD over OD
   md_od_exty:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # vertical space bewteen MD
   md_spy:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # minimum height of MD
   md_h_min:
     lch: [.inf]
-    val: [10]
+    val: [50]
   # Minimum number of fingers for decap connection.
   min_fg_decap:
     lch: [.inf]
@@ -265,7 +280,7 @@ mos:
   # source/drain pitch is computed as val[0] + val[1] * lch_unit
   sd_pitch_constants:
     lch: [.inf]
-    val: [[10, 1]]
+    val: [[100, 0]]
   # number of source/drain junction per vertical track.
   num_sd_per_track:
     lch: [.inf]
@@ -274,21 +289,35 @@ mos:
   po_od_exty:
     lch: [.inf]
     val: [10]
+  # gate M1 dummy wire height
+  g_m1_dum_h: 50
+  # gate wire bottom layer ID
+  g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  d_bot_layer: 1
+  # gate wire widths
+  g_conn_w: [50, 50, 50]
+  # drain wire widths
+  d_conn_w: [50, 50, 50]
+  # gate wire directions
+  g_conn_dir: ['y', 'x', 'y']
+  # drain wire directions
+  d_conn_dir: ['y', 'x', 'y']
   # gate via parameters
-  via_g:
+  g_via:
     dim:
-      - [10, 10]
-      - [10, 10]
-      - [10, 10]
+      - [50, 50]
+      - [50, 50]
+      - [50, 50]
     sp: [10, 10, 10]
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
   # drain/source via parameters
-  via_d:
+  d_via:
     dim:
-      - [10, 10]
-      - [10, 10]
-      - [10, 10]
+      - [50, 50]
+      - [50, 50]
+      - [50, 50]
     sp: [10, 10, 10]
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
