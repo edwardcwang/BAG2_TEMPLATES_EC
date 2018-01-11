@@ -1,7 +1,7 @@
 # PDK library name.
 tech_lib: finfet_generic
 # layout unit, in meters.
-layout_unit: 1e-6
+layout_unit: 1.0e-6
 # layout resolution, in layout units.
 resolution: 0.001
 # True if BAG needs to handle coloring metals.
