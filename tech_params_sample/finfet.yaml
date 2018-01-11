@@ -19,6 +19,8 @@ mos_layer_table:
   OD: !!python/tuple ['Active', 'drawing']
   # dummy active
   OD_dummy: !!python/tuple ['Active', 'dummy']
+  # gate connection metal
+  MP: !!python/tuple ['LiPo', 'drawing']
   # OD connection metal
   MD: !!python/tuple ['LiAct', 'drawing']
   # dummy OD connection metal
@@ -163,6 +165,8 @@ dnw_margins:
 
 # transistor DRC rules.
 mos:
+  # True if PODE is a special poly layer
+  pode_is_poly: False
   # fin height
   fin_h: 4
   # minimum horizontal space between OD, in resolution units
