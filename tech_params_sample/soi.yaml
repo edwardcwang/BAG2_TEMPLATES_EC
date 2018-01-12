@@ -172,6 +172,10 @@ mos_analog:
   dig_conn_layer: -1
   # LaygoBase top layer.
   dig_top_layer: -1
+  # width of bottom bound-box of OD-M1 via
+  md_w: 10
+  # height of gate PO bar
+  mp_h: 10
   # Minimum number of fingers for decap connection.
   min_fg_decap:
     lch: [.inf]
@@ -197,16 +201,6 @@ mos_analog:
   w_delta:
     lch: [.inf]
     val: [0]
-  # gate vertical wire width on each layer.
-  w_conn_g:
-    lch: [.inf]
-    val:
-      - [10, 10, 10, 10]
-  # drain vertical wire width on each layer.
-  w_conn_d:
-    lch: [.inf]
-    val:
-      - [10, 10, 10, 10]
   sp_bpo_v0:
     lch: [.inf]
     val: [100]
@@ -251,8 +245,26 @@ mos_analog:
   num_via_body:
     lch: [.inf]
     val: [2]
+  # gate wire bottom layer ID
+  g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  d_bot_layer: 1
+  # gate vertical wire width on each layer.
+  g_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # drain vertical wire width on each layer.
+  d_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # gate wire directions
+  g_conn_dir: ['x', 'y', 'y']
+  # drain wire directions
+  d_conn_dir: ['y', 'y', 'y']
   # gate via parameters
-  via_g:
+  g_via:
     dim:
       - [10, 10]
       - [10, 10]
@@ -261,7 +273,7 @@ mos_analog:
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
   # drain/source via parameters
-  via_d:
+  d_via:
     dim:
       - [10, 10]
       - [10, 10]
@@ -270,7 +282,7 @@ mos_analog:
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
   # body via parameters
-  via_b:
+  b_via:
     dim: [10, 10]
     sp: 10
     enc1: [10, 10, 10, 10]
