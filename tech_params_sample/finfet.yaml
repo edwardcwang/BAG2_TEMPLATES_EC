@@ -21,6 +21,8 @@ mos_layer_table:
   OD_dummy: !!python/tuple ['Active', 'dummy']
   # gate connection metal
   MP: !!python/tuple ['LiPo', 'drawing']
+  # dummy gate connection metal
+  MP_dummy: !!python/tuple ['LiPo', 'drawing']
   # OD connection metal
   MD: !!python/tuple ['LiAct', 'drawing']
   # dummy OD connection metal
@@ -37,6 +39,8 @@ res_layer_table:
   RPDMY: !!python/tuple ['RPDMY', 'drawing']
   # the "resistive poly" layer that makes a poly more resistive.
   RPO: !!python/tuple ['RPO', 'drawing']
+  # the resistor top level layer
+  RH: !!python/tuple ['RH', 'drawing']
 
 # mapping from metal layer ID to layer/purpose pair that defines
 # a metal resistor.
@@ -478,6 +482,14 @@ resistor:
     high_speed:
       !!python/tuple [RES, drawing]: [10, 50]
       !!python/tuple [RES2, drawing]: [10, 50]
+  # resistor threshold layers list
+  thres_layers:
+    ptap:
+      standard:
+        !!python/tuple ['Psvt', 'drawing']: [10, 50]
+    ntap:
+      standard:
+        !!python/tuple ['Nsvt', 'drawing']: [10, 50]
   # resistor type information dictionary
   info:
     standard:
