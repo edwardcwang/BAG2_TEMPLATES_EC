@@ -180,6 +180,8 @@ mos:
   od_min_density: 0.20
   # dummy OD height range.
   od_fill_w: !!python/tuple [100, 200]
+  # width of bottom bound-box of OD-M1 via
+  md_w: 10
   # implant layers vertical enclosure of active.
   # this is used to figure out where to separate implant layers in extension blocks,
   imp_od_ency: 100
@@ -220,16 +222,6 @@ mos:
   num_sd_per_track:
     lch: [.inf]
     val: [1]
-  # gate vertical wire width on each layer.
-  w_conn_g:
-    lch: [.inf]
-    val:
-      - [-1, 10, 10, 10]
-  # drain vertical wire width on each layer.
-  w_conn_d:
-    lch: [.inf]
-    val:
-      - [10, 10, 10, 10]
   # space between PO
   sp_po:
     lch: [.inf]
@@ -267,8 +259,26 @@ mos:
   dum_m1_encx:
     lch: [.inf]
     val: [10]
+  # gate wire bottom layer ID
+  g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  d_bot_layer: 1
+  # gate vertical wire width on each layer.
+  g_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # drain vertical wire width on each layer.
+  d_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # gate wire directions
+  g_conn_dir: ['x', 'y', 'y']
+  # drain wire directions
+  d_conn_dir: ['y', 'y', 'y']
   # gate via parameters
-  via_g:
+  g_via:
     dim:
       - [10, 10]
       - [10, 10]
@@ -277,7 +287,7 @@ mos:
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
   # drain/source via parameters
-  via_d:
+  d_via:
     dim:
       - [10, 10]
       - [10, 10]
