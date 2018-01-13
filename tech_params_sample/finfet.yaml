@@ -175,12 +175,6 @@ mos:
   pode_is_poly: False
   # fin height
   fin_h: 4
-  # minimum horizontal space between OD, in resolution units
-  od_spx: 10
-  # minimum vertical space between OD, in resolution units
-  od_spy: 10
-  # maximum vertical space between OD, in resolution units
-  od_spy_max: 1000
   # OD quantization pitch.
   mos_pitch: 50
   # number of fingers in an AnalogBase row must be multiples of this number.
@@ -203,6 +197,12 @@ mos:
   dig_conn_layer: 1
   # LaygoBase top layer.
   dig_top_layer: 2
+  # minimum horizontal space between OD, in resolution units
+  od_spx: 10
+  # minimum vertical space between OD, in resolution units
+  od_spy: 10
+  # maximum vertical space between OD, in resolution units
+  od_spy_max: 1000
   # minimum OD density
   od_min_density: 0.20
   # dummy OD height range, in number of fins
@@ -357,7 +357,6 @@ mos:
   laygo_sub_port_cols: [1]
   # number of space columns needed around substrate block
   laygo_sub_spx: 1
-
   # DNW layer names
   dnw_layers:
     - !!python/tuple [dnw, drawing]
