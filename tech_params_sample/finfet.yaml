@@ -31,6 +31,8 @@ mos_layer_table:
   CPO: !!python/tuple ['CutPoly', 'drawing']
   # fin boundary layer
   FB: !!python/tuple ['FinArea', 'drawing']
+  # nwell layer
+  NW: !!python/tuple ['NWell', 'drawing']
 
 # mapping from resistor layer name to actual layer/purpose tuple
 res_layer_table:
@@ -39,8 +41,12 @@ res_layer_table:
   RPDMY: !!python/tuple ['RPDMY', 'drawing']
   # the "resistive poly" layer that makes a poly more resistive.
   RPO: !!python/tuple ['RPO', 'drawing']
-  # the resistor top level layer
-  RH: !!python/tuple ['RH', 'drawing']
+  # the resistor layer
+  RES: !!python/tuple ['RES', 'drawing']
+  # the resistor dummy layer
+  RES_dummy: !!python/tuple ['RES', 'dummy']
+  # the resistor area implant layer
+  RTOP: !!python/tuple ['RES', 'drawing']
 
 # mapping from metal layer ID to layer/purpose pair that defines
 # a metal resistor.
