@@ -29,6 +29,9 @@ class MOSTech(object, metaclass=abc.ABCMeta):
         the technology configuration dictionary.
     tech_info : TechInfo
         the TechInfo object.
+    mos_entry_name : str
+        name of the entry that contains technology parameters for transistors in
+        the given configuration dictionary.
     """
 
     def __init__(self, config, tech_info, mos_entry_name='mos'):
@@ -462,8 +465,8 @@ class MOSTech(object, metaclass=abc.ABCMeta):
         """
         pass
 
-    def get_conn_drc_info(self, lch_unit, wire_type):
-        # type: (int, str) -> Dict[int, Dict[str, Any]]
+    def get_conn_drc_info(self, lch_unit, wire_type, is_laygo=False):
+        # type: (int, str, bool) -> Dict[int, Dict[str, Any]]
         """Get DRC information about gate/drain/source wire on each layer.
 
         Parameters
@@ -472,17 +475,21 @@ class MOSTech(object, metaclass=abc.ABCMeta):
             channel length, in resolution units.
         wire_type : str
             the wire type, either 'g' or 'd'.
+        is_laygo : bool
+            True if this is for laygo connections.
 
         Returns
         -------
         drc_info : Dict[int, Dict[str, Any]]
             a dictionary from layer ID to DRC information dictionary.
         """
+        if is_laygo:
+            wire_type = 'laygo_' + wire_type
         mos_constants = self.get_mos_tech_constants(lch_unit)
-        bot_layer = mos_constants['%s_bot_layer' % wire_type]
-        widths = mos_constants['%s_conn_w' % wire_type]
-        via_info = mos_constants['%s_via' % wire_type]
-        dirs = mos_constants['%s_conn_dir' % wire_type]
+        bot_layer = mos_constants[wire_type + '_bot_layer']
+        widths = mos_constants[wire_type + '_conn_w']
+        via_info = mos_constants[wire_type + '_via']
+        dirs = mos_constants[wire_type + '_conn_dir']
 
         conn_info = {}
         layers = range(bot_layer, bot_layer + len(dirs))
@@ -575,6 +582,12 @@ class MOSTech(object, metaclass=abc.ABCMeta):
             d_bot_layer = ans['d_bot_layer']
             ans['mos_conn_w'] = d_conn_w[dum_layer - d_bot_layer]
             ans['dum_conn_w'] = d_conn_w[mos_layer - d_bot_layer]
+            # handle laygo_conn_w
+            if 'laygo_d_conn_w' in ans:
+                d_conn_w = ans['laygo_d_conn_w']
+                d_bot_layer = ans['laygo_d_bot_layer']
+                laygo_layer = self.get_dig_conn_layer()
+                ans['laygo_conn_w'] = d_conn_w[laygo_layer - d_bot_layer]
 
             # handle sd_pitch
             offset, scale = ans['sd_pitch_constants']
@@ -825,6 +838,22 @@ class MOSTech(object, metaclass=abc.ABCMeta):
         """
         mos_constants = self.get_mos_tech_constants(lch_unit)
         return mos_constants['num_sd_per_track']
+
+    def get_laygo_num_fingers_per_sd(self, lch_unit):
+        # type: (int) -> int
+        """Returns the number of transistor source/drain junction per vertical track.
+
+        Parameters
+        ----------
+        lch_unit : int
+            channel length in resolution units
+
+        Returns
+        -------
+        num_sd_per_track : number of source/drain junction per vertical track.
+        """
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        return mos_constants['laygo_num_sd_per_track']
 
     def get_sd_pitch(self, lch_unit):
         # type: (int) -> int

@@ -175,12 +175,6 @@ mos:
   pode_is_poly: False
   # fin height
   fin_h: 4
-  # minimum horizontal space between OD, in resolution units
-  od_spx: 10
-  # minimum vertical space between OD, in resolution units
-  od_spy: 10
-  # maximum vertical space between OD, in resolution units
-  od_spy_max: 1000
   # OD quantization pitch.
   mos_pitch: 50
   # number of fingers in an AnalogBase row must be multiples of this number.
@@ -203,6 +197,12 @@ mos:
   dig_conn_layer: 1
   # LaygoBase top layer.
   dig_top_layer: 2
+  # minimum horizontal space between OD, in resolution units
+  od_spx: 10
+  # minimum vertical space between OD, in resolution units
+  od_spy: 10
+  # maximum vertical space between OD, in resolution units
+  od_spy_max: 1000
   # minimum OD density
   od_min_density: 0.20
   # dummy OD height range, in number of fins
@@ -347,6 +347,44 @@ mos:
     sp: [10, 10, 10]
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
+  # LaygoBase unit cell width in number of fingers
+  laygo_unit_fg: 2
+  # True if the source wires in fg2d block are shorted together
+  laygo_fg2d_s_short: False
+  # number of columns per substrate block
+  laygo_sub_ncol: 3
+  # list of columns in substrate block that has ports
+  laygo_sub_port_cols: [1]
+  # number of space columns needed around substrate block
+  laygo_sub_spx: 1
+  # number of source/drain junction per vertical track.
+  laygo_num_sd_per_track:
+    lch: [.inf]
+    val: [1]
+  # gate wire bottom layer ID
+  laygo_g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  laygo_d_bot_layer: 1
+  # gate wire widths
+  laygo_g_conn_w: [10]
+  # drain wire widths
+  laygo_d_conn_w: [10]
+  # gate wire directions
+  laygo_g_conn_dir: ['y']
+  # drain wire directions
+  laygo_d_conn_dir: ['y']
+  # gate via parameters
+  laygo_g_via:
+    dim: [[10, 10]]
+    sp: [10]
+    bot_enc_le: [10]
+    top_enc_le: [10]
+  # drain/source via parameters
+  laygo_d_via:
+    dim: [[10, 10]]
+    sp: [10]
+    bot_enc_le: [10]
+    top_enc_le: [10]
   # DNW layer names
   dnw_layers:
     - !!python/tuple [dnw, drawing]

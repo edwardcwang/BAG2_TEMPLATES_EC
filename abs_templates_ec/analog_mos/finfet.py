@@ -33,11 +33,21 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
     This class for now handles all DRC rules and drawings related to PO, OD, CPO,
     and MD. The rest needs to be implemented by subclasses.
+
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        the technology configuration dictionary.
+    tech_info : TechInfo
+        the TechInfo object.
+    mos_entry_name : str
+        name of the entry that contains technology parameters for transistors in
+        the given configuration dictionary.
     """
 
-    def __init__(self, config, tech_info):
-        # type: (Dict[str, Any], TechInfoConfig) -> None
-        MOSTech.__init__(self, config, tech_info)
+    def __init__(self, config, tech_info, mos_entry_name='mos'):
+        # type: (Dict[str, Any], TechInfoConfig, str) -> None
+        MOSTech.__init__(self, config, tech_info, mos_entry_name=mos_entry_name)
 
     @abc.abstractmethod
     def get_mos_yloc_info(self, lch_unit, w, **kwargs):
@@ -61,6 +71,12 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         fill_info :
             a dictionary from metal layer tuple to tuple of exclusion
             layer name and list of metal fill Y intervals.
+        g_conn_y :
+            Y coordinate interval where horizontal gate wires can contact
+            to gate.
+        d_conn_y :
+            Y coordinate interval where horizontal drain/source wire can
+            contact to drain/source.
         """
         return {}
 
@@ -86,6 +102,12 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         fill_info :
             a dictionary from metal layer tuple to tuple of exclusion
             layer name and list of metal fill Y intervals.
+        g_conn_y :
+            Y coordinate interval where horizontal gate wires can contact
+            to gate.
+        d_conn_y :
+            Y coordinate interval where horizontal drain/source wire can
+            contact to drain/source.
         """
         return {}
 
@@ -878,8 +900,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             else:
                 od_fg_min = self.get_analog_unit_fg()
                 od_fg_max = (od_fill_w_max - lch_unit) // sd_pitch - 1
-                od_fg_sp = -(-(od_spx - (sd_pitch - lch_unit)) // sd_pitch) + 2
-                od_x_list = fill_symmetric_max_density(fg, fg, od_fg_min, od_fg_max, od_fg_sp,
+                od_spx_fg = -(-(od_spx - sd_pitch + lch_unit) // sd_pitch) + 2
+                od_x_list = fill_symmetric_max_density(fg, fg, od_fg_min, od_fg_max, od_spx_fg,
                                                        fill_on_edge=True, cyclic=False)[0]
 
             # add CPO layers
