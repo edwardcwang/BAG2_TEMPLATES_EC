@@ -357,6 +357,34 @@ mos:
   laygo_sub_port_cols: [1]
   # number of space columns needed around substrate block
   laygo_sub_spx: 1
+  # number of source/drain junction per vertical track.
+  laygo_num_sd_per_track:
+    lch: [.inf]
+    val: [1]
+  # gate wire bottom layer ID
+  laygo_g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  laygo_d_bot_layer: 1
+  # gate wire widths
+  laygo_g_conn_w: [10]
+  # drain wire widths
+  laygo_d_conn_w: [10]
+  # gate wire directions
+  laygo_g_conn_dir: ['y']
+  # drain wire directions
+  laygo_d_conn_dir: ['y']
+  # gate via parameters
+  laygo_g_via:
+    dim: [[10, 10]]
+    sp: [10]
+    bot_enc_le: [10]
+    top_enc_le: [10]
+  # drain/source via parameters
+  laygo_d_via:
+    dim: [[10, 10]]
+    sp: [10]
+    bot_enc_le: [10]
+    top_enc_le: [10]
   # DNW layer names
   dnw_layers:
     - !!python/tuple [dnw, drawing]
