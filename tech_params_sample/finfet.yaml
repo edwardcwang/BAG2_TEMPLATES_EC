@@ -31,8 +31,6 @@ mos_layer_table:
   CPO: !!python/tuple ['CutPoly', 'drawing']
   # fin boundary layer
   FB: !!python/tuple ['FinArea', 'drawing']
-  # nwell layer
-  NW: !!python/tuple ['NWell', 'drawing']
 
 # mapping from resistor layer name to actual layer/purpose tuple
 res_layer_table:
