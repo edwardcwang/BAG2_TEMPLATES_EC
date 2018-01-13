@@ -431,46 +431,54 @@ resistor:
   bot_layer: 2
   # the resistor core block pitch in resolution units
   block_pitch: !!python/tuple [1, 1]
-  # space between PO and dummy PO
-  po_sp: 50
-  # space between implant layer and OD.  Used only if OD cannot be inside resistor implant.
-  imp_od_sp: 10
-  # space between PO/dummy PO and dummy OD
-  po_od_sp: 10
-  # PO horizontal/vertical enclosure of CO
-  po_co_enc: [5, 5]
-  # exact extension of PO over RPO.  If negative, this parameter is ignored.
-  po_rpo_ext_exact: -1
-  # maximum PO density (recommended)
-  po_max_density: 0.55
-  # dummy PO minimum width/height
-  dpo_dim_min: [10, 10]
-  # dummy OD minimum width/height
-  od_dim_min: [10, 50]
-  # dummy OD maximum width/height
-  od_dim_max: [100, 5000]
-  # dummy OD space
-  od_sp: 10
+  # margin needed on edge
+  edge_margin: 100
+  # MP height that connects to RES.
+  mp_h: 10
+  # dummy MP vertical space
+  mp_spy_dum: 10
+  # dummy MP height
+  mp_h_dum: 10
+  # vertical extension of RES over MP.
+  res_mp_exty: 10
+  # RES vertical space
+  res_spy: 10
+  # maximum RES density (recommended)
+  res_max_density: 0.55
+  # dummy fill PO channel length
+  po_lch : 10
+  # dummy fill PO pitch
+  po_pitch: 100
+  # dummy fill PO minimum height
+  po_h_min: 10
+  # dummy fill PO horizontal space
+  po_spx: 10
+  # dummy fill PO vertical space
+  po_spy: 10
+  # dummy fill PO horizontal space to RES
+  po_res_spx: 10
+  # dummy fill PO vertical space to RES
+  po_res_spy: 10
+  # dummy fill PO vertical extension beyond OD
+  po_od_exty: 10
+  # dummy OD height bounds in fins
+  od_fill_h: !!python/tuple [1, 10]
+  # dummy OD minimum width in number of fingers
+  od_fg_min: 2
+  # dummy OD enclosure of dummy MP
+  od_mp_ency_dum: 10
   # minimum OD density
   od_min_density: 0.20
-  # CO width
-  co_w: 10
-  # CO spacing
-  co_sp: 10
-  # M1 horizontal/vertical enclosure of CO
-  m1_co_enc: [5, 5]
-  # M1 fill maximum spacing
-  m1_sp_max: 1000
-  # M1 fill space to boundary
-  m1_sp_bnd: 100
-  # space of RPO to CO
-  rpo_co_sp: 20
-  # extension of RPO on PO
-  rpo_extx: 50
-  # margin needed on the edges
-  edge_margin: 48
-  # enclosure of implant layers in horizontal/vertical direction
-  imp_enc: [50, 50]
+  # FB layer horizontal extension beyond dummy OD
+  finfet_od_extx: 10
+  # implant horizontal enclosure of OD
+  imp_od_encx: 10
+  # implant vertical enclosure of PO
+  imp_po_ency: 10
+  # RTOP horizontal enclosure of OD
+  rtop_od_encx: 10
+  # RTOP vertical enclosure of OD
+  rtop_od_ency: 10
   # resistor implant layers list
   imp_layers:
     nch: {}
@@ -498,17 +506,13 @@ resistor:
         !!python/tuple ['Nsvt', 'drawing']: [10, 50]
   # resistor type information dictionary
   info:
+    # resistor type name.
     standard:
+      # resistance per square
       rsq: 500
+      # minimum number of squares in a resistor
       min_nsq: 1
+      # tuple of valid width values, in layout units
       w_bounds: !!python/tuple [10, 20]
+      # tuple of valid length values, in layout units.
       l_bounds: !!python/tuple [20, 50]
-      need_rpo: True
-      # True to draw RPO layer, which is a layer that makes
-      # PO resistive.
-      need_rpo: True
-      # True to draw RPDMY layer, which is a layer directly
-      # on top of the resistor.  Usually for LVS purposes.
-      need_rpdmy: True
-      # True if OD can be drawn in resistor implant layer.
-      od_in_res: True
