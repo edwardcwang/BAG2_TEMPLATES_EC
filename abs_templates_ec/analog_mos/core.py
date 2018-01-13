@@ -1,292 +1,50 @@
 # -*- coding: utf-8 -*-
-########################################################################################################################
-#
-# Copyright (c) 2014, Regents of the University of California
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
-# following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-#   disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
-#    following disclaimer in the documentation and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-########################################################################################################################
-
 
 """This module defines abstract analog mosfet template classes.
 """
 
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-# noinspection PyUnresolvedReferences,PyCompatibility
-from builtins import *
-from future.utils import with_metaclass
+from typing import TYPE_CHECKING, Dict, Any, Union, Tuple, List, Optional
 
-from typing import Dict, Any, Union, Tuple, List, Optional
+import abc
+from itertools import chain
 from collections import namedtuple
 
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 
-import abc
-
+if TYPE_CHECKING:
+    from bag.layout.tech import TechInfoConfig
 
 PlaceInfo = namedtuple('PlaceInfo', ['tot_width', 'core_width', 'edge_margins', 'edge_widths', 'arr_box_x', ])
 
 
-class MOSTech(with_metaclass(abc.ABCMeta, object)):
-    """An abstract static class for drawing transistor related layout.
+class MOSTech(object, metaclass=abc.ABCMeta):
+    """An abstract class for drawing transistor related layout.
     
-    This class defines various static methods use to draw layouts used by AnalogBase.
+    This class defines various methods use to draw layouts used by AnalogBase.
+
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        the technology configuration dictionary.
+    tech_info : TechInfo
+        the TechInfo object.
     """
 
-    @classmethod
+    def __init__(self, config, tech_info, mos_entry_name='mos'):
+        # type: (Dict[str, Any], TechInfoConfig, str) -> None
+        self.config = config
+        self.mos_config = self.config[mos_entry_name]
+        self.res = self.config['resolution']
+        self.tech_info = tech_info
+        self._lch_unit = None
+        self._mos_constants = None
+
     @abc.abstractmethod
-    def get_mos_tech_constants(cls, lch_unit):
-        # type: (int) -> Dict[str, Any]
-        """Returns a dictionary of technology constants given transistor channel length.
-        
-        Must have the following entries:
-        
-        sd_pitch : the source/drain pitch of the transistor in resolution units.
-        mos_conn_w : the transistor connection track width in resolution units.
-        dum_conn_w : the dummy connection track width in resolution units.
-        num_sd_per_track : number of transistor source/drain junction per vertical track.
-        
-        
-        Parameters
-        ----------
-        lch_unit : int
-            the channel length, in resolution units.
-        
-        Returns
-        -------
-        tech_dict : Dict[str, Any]
-            a technology constants dictionary.
-        """
-        return {}
-
-    @classmethod
-    @abc.abstractmethod
-    def get_analog_unit_fg(cls):
-        # type: () -> int
-        """Returns the number of fingers in an AnalogBase row unit.
-
-        Returns
-        -------
-        num_fg : int
-            number of fingers in an AnalogBase row unit.
-        """
-
-    @classmethod
-    @abc.abstractmethod
-    def draw_zero_extension(cls):
-        # type: () -> bool
-        """Returns True if we should draw 0 width extension.
-
-        Returns
-        -------
-        draw_ext : bool
-            True to draw 0 width extension.
-        """
-        return False
-
-    @classmethod
-    @abc.abstractmethod
-    def floating_dummy(cls):
-        # type: () -> bool
-        """Returns True if floating dummies are allowed.
-
-        Returns
-        -------
-        float_dummy : bool
-            True if floating dummies are allowed.
-        """
-        return False
-
-    @classmethod
-    @abc.abstractmethod
-    def abut_analog_mos(cls):
-        # type: () -> bool
-        """Returns True if abutting transistors in AnalogBase is allowed.
-
-        Returns
-        -------
-        abut_analog_mos : bool
-            True if abutting transistors in AnalogBase is allowed.
-        """
-        return True
-
-    @classmethod
-    @abc.abstractmethod
-    def get_substrate_ring_lch(cls):
-        # type: () -> float
-        """Returns substrate channel length used in substrate rings.
-
-        Returns
-        -------
-        lch : float
-            Substrate channel length, in meters.
-        """
-        return 0.0
-
-    @classmethod
-    @abc.abstractmethod
-    def get_dum_conn_pitch(cls):
-        # type: () -> int
-        """Returns the minimum track pitch of dummy connections in number of tracks.
-
-        Some technology can only draw dummy connections on every other track.  In that case,
-        this method should return 2.
-
-        Returns
-        -------
-        dum_conn_pitch : pitch between adjacent dummy connection.
-        """
-        return 1
-
-    @classmethod
-    @abc.abstractmethod
-    def get_dum_conn_layer(cls):
-        # type: () -> int
-        """Returns the dummy connection layer ID.  Must be vertical.
-        
-        Returns
-        -------
-        dum_layer : int
-            the dummy connection layer ID.
-        """
-        return 1
-
-    @classmethod
-    @abc.abstractmethod
-    def get_mos_conn_layer(cls):
-        # type: () -> int
-        """Returns the transistor connection layer ID.  Must be vertical.
-        
-        Returns
-        -------
-        mos_layer : int
-            the transistor connection layer ID.
-        """
-        return 3
-
-    @classmethod
-    @abc.abstractmethod
-    def get_dig_conn_layer(cls):
-        # type: () -> int
-        """Returns the digital connection layer ID.  Must be vertical.
-
-        Returns
-        -------
-        dig_layer : int
-            the transistor connection layer ID.
-        """
-        return 1
-
-    @classmethod
-    @abc.abstractmethod
-    def get_dig_top_layer(cls):
-        # type: () -> int
-        """Returns the digital connection layer ID.  Must be vertical.
-
-        Returns
-        -------
-        dig_layer : int
-            the transistor connection layer ID.
-        """
-        return 3
-
-    @classmethod
-    @abc.abstractmethod
-    def get_min_fg_decap(cls, lch_unit):
-        # type: (int) -> int
-        """Returns the minimum number of fingers for decap connections.
-        
-        Parameters
-        ----------
-        lch_unit : int
-            the channel length in resolution units.
-        
-        Returns
-        -------
-        num_fg : int
-            minimum number of decap fingers.
-        """
-        return 2
-
-    @classmethod
-    @abc.abstractmethod
-    def get_min_fg_sep(cls, lch_unit):
-        # type: (int) -> int
-        """Returns the minimum number of dummy fingers needed between active transistors in AnalogBase.
-
-        Parameters
-        ----------
-        lch_unit : int
-            the channel length in resolution units.
-
-        Returns
-        -------
-        num_fg : int
-            minimum number of dummy fingers.
-        """
-        return 2
-
-    @classmethod
-    @abc.abstractmethod
-    def get_tech_constant(cls, name):
-        # type: (str) -> Any
-        """Returns the value of the given technology constant.
-        
-        Parameters
-        ----------
-        name : str
-            constant name.
-            
-        Returns
-        -------
-        val : Any
-            constant value.
-        """
-        return 0
-
-    @classmethod
-    @abc.abstractmethod
-    def get_mos_pitch(cls, unit_mode=False):
-        # type: (bool) -> Union[float, int]
-        """Returns the transistor vertical placement quantization pitch.
-        
-        This is usually the fin pitch for finfet process.
-        
-        Parameters
-        ----------
-        unit_mode : bool
-            True to return the pitch in resolution units.
-            
-        Returns
-        -------
-        mos_pitch : Union[float, int]
-            the transistor vertical placement quantization pitch.
-        """
-        return 1
-
-    @classmethod
-    @abc.abstractmethod
-    def get_edge_info(cls, lch_unit, guard_ring_nf, is_end, **kwargs):
+    def get_edge_info(self, lch_unit, guard_ring_nf, is_end, **kwargs):
         # type: (int, int, bool, **kwargs) -> Dict[str, Any]
         """Returns a dictionary containing transistor edge layout information.
-        
+
         The returned dictionary must have two entries
 
         edge_num_fg : int
@@ -317,14 +75,13 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_mos_info(cls, lch_unit, w, mos_type, threshold, fg, **kwargs):
+    def get_mos_info(self, lch_unit, w, mos_type, threshold, fg, **kwargs):
         # type: (int, int, str, str, int, **kwargs) -> Dict[str, Any]
         """Returns the transistor information dictionary.
-        
+
         The returned dictionary must have the following entries:
-        
+
         layout_info
             the layout information dictionary.
         ext_top_info
@@ -362,17 +119,16 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_valid_extension_widths(cls, lch_unit, top_ext_info, bot_ext_info):
+    def get_valid_extension_widths(self, lch_unit, top_ext_info, bot_ext_info):
         # type: (int, Any, Any) -> List[int]
         """Returns a list of valid extension widths in mos_pitch units.
-        
+
         the list should be sorted in increasing order, and any extension widths greater than
         or equal to the last element should be valid.  For example, if the returned list
         is [0, 2, 5], then extension widths 0, 2, 5, 6, 7, ... are valid, while extension
         widths 1, 3, 4 are not valid.
-        
+
         Parameters
         ----------
         lch_unit : int
@@ -384,12 +140,11 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return [0]
 
-    @classmethod
     @abc.abstractmethod
-    def get_ext_info(cls, lch_unit, w, fg, top_ext_info, bot_ext_info):
+    def get_ext_info(self, lch_unit, w, fg, top_ext_info, bot_ext_info):
         # type: (int, int, int, Any, Any) -> Dict[str, Any]
         """Returns the extension layout information dictionary.
-        
+
         Parameters
         ----------
         lch_unit : int
@@ -410,9 +165,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_sub_ring_ext_info(cls, sub_type, height, fg, end_ext_info, **kwargs):
+    def get_sub_ring_ext_info(self, sub_type, height, fg, end_ext_info, **kwargs):
         # type: (str, int, int, Any, **kwargs) -> Dict[str, Any]
         """Returns the SubstrateRing extension layout information dictionary.
 
@@ -436,12 +190,11 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_substrate_info(cls, lch_unit, w, sub_type, threshold, fg, blk_pitch=1, **kwargs):
+    def get_substrate_info(self, lch_unit, w, sub_type, threshold, fg, blk_pitch=1, **kwargs):
         # type: (int, int, str, str, int, int, int, **kwargs) -> Dict[str, Any]
         """Returns the substrate layout information dictionary.
-        
+
         Parameters
         ----------
         lch_unit : int
@@ -466,9 +219,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_analog_end_info(cls, lch_unit, sub_type, threshold, fg, is_end, blk_pitch, **kwargs):
+    def get_analog_end_info(self, lch_unit, sub_type, threshold, fg, is_end, blk_pitch, **kwargs):
         # type: (int, str, str, int, bool, int, **kwargs) -> Dict[str, Any]
         """Returns the AnalogBase end row layout information dictionary.
 
@@ -496,9 +248,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_sub_ring_end_info(cls, sub_type, threshold, fg, end_ext_info, **kwargs):
+    def get_sub_ring_end_info(self, sub_type, threshold, fg, end_ext_info, **kwargs):
         # type: (str, str, int, Any, **kwargs) -> Dict[str, Any]
         """Returns the SubstrateRing inner end row layout information dictionary.
 
@@ -522,12 +273,11 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_outer_edge_info(cls, guard_ring_nf, layout_info, is_end, adj_blk_info):
+    def get_outer_edge_info(self, guard_ring_nf, layout_info, is_end, adj_blk_info):
         # type: (int, Dict[str, Any], bool, Optional[Any]) -> Dict[str, Any]
         """Returns the outer edge layout information dictionary.
-        
+
         Parameters
         ----------
         guard_ring_nf : int
@@ -547,9 +297,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_gr_sub_info(cls, guard_ring_nf, layout_info):
+    def get_gr_sub_info(self, guard_ring_nf, layout_info):
         # type: (int, Dict[str, Any]) -> Dict[str, Any]
         """Returns the guard ring substrate layout information dictionary.
 
@@ -567,9 +316,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def get_gr_sep_info(cls, layout_info, adj_blk_info):
+    def get_gr_sep_info(self, layout_info, adj_blk_info):
         # type: (Dict[str, Any], Any) -> Dict[str, Any]
         """Returns the guard ring separator layout information dictionary.
 
@@ -588,12 +336,11 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         return {}
 
-    @classmethod
     @abc.abstractmethod
-    def draw_mos(cls, template, layout_info):
+    def draw_mos(self, template, layout_info):
         # type: (TemplateBase, Dict[str, Any]) -> None
         """Draw transistor layout structure in the given template.
-        
+
         Parameters
         ----------
         template : TemplateBase
@@ -603,13 +350,12 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def draw_substrate_connection(cls, template, layout_info, port_tracks, dum_tracks, dummy_only,
+    def draw_substrate_connection(self, template, layout_info, port_tracks, dum_tracks, dummy_only,
                                   is_laygo, is_guardring):
         # type: (TemplateBase, Dict[str, Any], List[int], List[int], bool, bool, bool) -> bool
         """Draw substrate connection layout in the given template.
-        
+
         Parameters
         ----------
         template : TemplateBase
@@ -634,9 +380,8 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def draw_mos_connection(cls, template, mos_info, sdir, ddir, gate_pref_loc, gate_ext_mode,
+    def draw_mos_connection(self, template, mos_info, sdir, ddir, gate_pref_loc, gate_ext_mode,
                             min_ds_cap, is_diff, diode_conn, options):
         # type: (TemplateBase, Dict[str, Any], int, int, str, int, bool, bool, bool, Dict[str, Any]) -> None
         """Draw transistor connection layout in the given template.
@@ -669,10 +414,9 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def draw_dum_connection(cls, template, mos_info, edge_mode, gate_tracks, options):
-        # type: (TemplateBase, Dict[str, Any], int, List[int], Dict[str, Any]) -> None
+    def draw_dum_connection(self, template, mos_info, edge_mode, gate_tracks, options):
+        # type: (TemplateBase, Dict[str, Any], int, List[Union[float, int]], Dict[str, Any]) -> None
         """Draw dummy connection layout in the given template.
 
         Parameters
@@ -685,16 +429,15 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
             the dummy edge mode flag.  This is a 2-bit integer, the LSB is 1 if there are no
             transistors on the left side of the dummy, the MSB is 1 if there are no transistors
             on the right side of the dummy.
-        gate_tracks : List[int]
+        gate_tracks : List[Union[float, int]]
             list of dummy connection track indices.
         options : Dict[str, Any]
             a dictionary of transistor row options.
         """
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def draw_decap_connection(cls, template, mos_info, sdir, ddir, gate_ext_mode, export_gate, options):
+    def draw_decap_connection(self, template, mos_info, sdir, ddir, gate_ext_mode, export_gate, options):
         # type: (TemplateBase, Dict[str, Any], int, int, int, bool, Dict[str, Any]) -> None
         """Draw decoupling cap connection layout in the given template.
 
@@ -719,8 +462,310 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         """
         pass
 
-    @classmethod
-    def get_dum_conn_track_info(cls, lch_unit):
+    def get_conn_drc_info(self, lch_unit, wire_type):
+        # type: (int, str) -> Dict[int, Dict[str, Any]]
+        """Get DRC information about gate/drain/source wire on each layer.
+
+        Parameters
+        ----------
+        lch_unit : int
+            channel length, in resolution units.
+        wire_type : str
+            the wire type, either 'g' or 'd'.
+
+        Returns
+        -------
+        drc_info : Dict[int, Dict[str, Any]]
+            a dictionary from layer ID to DRC information dictionary.
+        """
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        bot_layer = mos_constants['%s_bot_layer' % wire_type]
+        widths = mos_constants['%s_conn_w' % wire_type]
+        via_info = mos_constants['%s_via' % wire_type]
+        dirs = mos_constants['%s_conn_dir' % wire_type]
+
+        conn_info = {}
+        layers = range(bot_layer, bot_layer + len(dirs))
+        for lay, w, direction, vdim, vble, vtle in \
+            zip(layers, widths, dirs, via_info['dim'],
+                via_info['bot_enc_le'], via_info['top_enc_le']):
+            vdim_le = vdim[0] if direction == 'x' else vdim[1]
+            top_ext = vdim_le // 2 + vtle
+            lay_name = self.tech_info.get_layer_name(lay)
+            if isinstance(lay_name, tuple):
+                lay_name = lay_name[0]
+            lay_type = self.tech_info.get_layer_type(lay_name)
+            min_len = self.tech_info.get_min_length_unit(lay_type, w)
+            min_len = max(2 * top_ext, -(-min_len // 2) * 2)
+            sp_le = self.tech_info.get_min_line_end_space_unit(lay_type, w)
+            conn_info[lay] = dict(
+                w=w,
+                direction=direction,
+                min_len=min_len,
+                sp_le=sp_le,
+                top_ext=top_ext,
+                bot_ext=0,
+            )
+
+            if lay > bot_layer:
+                vdim_le = vdim[0] if dirs[lay - bot_layer - 1] == 'x' else vdim[1]
+                bot_ext = vdim_le // 2 + vble
+                conn_info[lay - 1]['bot_ext'] = bot_ext
+                conn_info[lay - 1]['min_len'] = max(conn_info[lay - 1]['min_len'], 2 * bot_ext)
+
+        return conn_info
+
+    def get_mos_layers(self, mos_type, threshold):
+        # type: (str, str) -> List[Tuple[str, str]]
+        """Returns a list of implant/well/threshold layers.
+
+        Parameters
+        ----------
+        mos_type : str
+            the transistor type.  Valid values are 'pch', 'nch', 'ntap', and 'ptap'.
+        threshold : str
+            the threshold flavor.
+
+        Returns
+        -------
+        layer_list : List[Tuple[str, str]]
+            a list of implant/well/threshold layer names.
+        """
+        imp_layers_info = self.mos_config['imp_layers'][mos_type]
+        thres_layers_info = self.mos_config['thres_layers'][mos_type][threshold]
+
+        return list(chain(imp_layers_info.keys(), thres_layers_info.keys()))
+
+    def get_mos_tech_constants(self, lch_unit):
+        # type: (int) -> Dict[str, Any]
+        """Returns a dictionary of technology constants given transistor channel length.
+        
+        Must have the following entries:
+        
+        sd_pitch : the source/drain pitch of the transistor in resolution units.
+        mos_conn_w : the transistor connection track width in resolution units.
+        dum_conn_w : the dummy connection track width in resolution units.
+        num_sd_per_track : number of transistor source/drain junction per vertical track.
+        
+        
+        Parameters
+        ----------
+        lch_unit : int
+            the channel length, in resolution units.
+        
+        Returns
+        -------
+        tech_dict : Dict[str, Any]
+            a technology constants dictionary.
+        """
+        if lch_unit != self._lch_unit:
+            # handle general channel-length dependent constants
+            ans = self.mos_config.copy()
+            for key, data in ans.items():
+                if isinstance(data, dict) and 'lch' in data and 'val' in data:
+                    for lch, val in zip(data['lch'], data['val']):
+                        if lch_unit <= lch:
+                            ans[key] = val
+                            break
+
+            # handle mos/dum_conn_w
+            mos_layer = self.get_mos_conn_layer()
+            dum_layer = self.get_dum_conn_layer()
+            d_conn_w = ans['d_conn_w']
+            d_bot_layer = ans['d_bot_layer']
+            ans['mos_conn_w'] = d_conn_w[dum_layer - d_bot_layer]
+            ans['dum_conn_w'] = d_conn_w[mos_layer - d_bot_layer]
+
+            # handle sd_pitch
+            offset, scale = ans['sd_pitch_constants']
+            ans['sd_pitch'] = offset + int(round(scale * lch_unit))
+            self._mos_constants = ans
+            self._lch_unit = lch_unit
+
+        return self._mos_constants
+
+    def get_analog_unit_fg(self):
+        # type: () -> int
+        """Returns the number of fingers in an AnalogBase row unit.
+
+        Returns
+        -------
+        num_fg : int
+            number of fingers in an AnalogBase row unit.
+        """
+        return self.mos_config['analog_unit_fg']
+
+    def draw_zero_extension(self):
+        # type: () -> bool
+        """Returns True if we should draw 0 width extension.
+
+        Returns
+        -------
+        draw_ext : bool
+            True to draw 0 width extension.
+        """
+        return self.mos_config['draw_zero_extension']
+
+    def floating_dummy(self):
+        # type: () -> bool
+        """Returns True if floating dummies are allowed.
+
+        Returns
+        -------
+        float_dummy : bool
+            True if floating dummies are allowed.
+        """
+        return self.mos_config['floating_dummy']
+
+    def abut_analog_mos(self):
+        # type: () -> bool
+        """Returns True if abutting transistors in AnalogBase is allowed.
+
+        Returns
+        -------
+        abut_analog_mos : bool
+            True if abutting transistors in AnalogBase is allowed.
+        """
+        return self.mos_config['abut_analog_mos']
+
+    def get_substrate_ring_lch(self):
+        # type: () -> float
+        """Returns substrate channel length used in substrate rings.
+
+        Returns
+        -------
+        lch : float
+            Substrate channel length, in meters.
+        """
+        return self.mos_config['sub_ring_lch']
+
+    def get_dum_conn_pitch(self):
+        # type: () -> int
+        """Returns the minimum track pitch of dummy connections in number of tracks.
+
+        Some technology can only draw dummy connections on every other track.  In that case,
+        this method should return 2.
+
+        Returns
+        -------
+        dum_conn_pitch : pitch between adjacent dummy connection.
+        """
+        return self.mos_config['dum_conn_pitch']
+
+    def get_dum_conn_layer(self):
+        # type: () -> int
+        """Returns the dummy connection layer ID.  Must be vertical.
+        
+        Returns
+        -------
+        dum_layer : int
+            the dummy connection layer ID.
+        """
+        return self.mos_config['dum_layer']
+
+    def get_mos_conn_layer(self):
+        # type: () -> int
+        """Returns the transistor connection layer ID.  Must be vertical.
+        
+        Returns
+        -------
+        mos_layer : int
+            the transistor connection layer ID.
+        """
+        return self.mos_config['ana_conn_layer']
+
+    def get_dig_conn_layer(self):
+        # type: () -> int
+        """Returns the digital connection layer ID.  Must be vertical.
+
+        Returns
+        -------
+        dig_layer : int
+            the transistor connection layer ID.
+        """
+        return self.mos_config['dig_conn_layer']
+
+    def get_dig_top_layer(self):
+        # type: () -> int
+        """Returns the digital top layer ID.  Must be vertical.
+
+        Returns
+        -------
+        dig_layer : int
+            the transistor connection layer ID.
+        """
+        return self.mos_config['dig_top_layer']
+
+    def get_min_fg_decap(self, lch_unit):
+        # type: (int) -> int
+        """Returns the minimum number of fingers for decap connections.
+        
+        Parameters
+        ----------
+        lch_unit : int
+            the channel length in resolution units.
+        
+        Returns
+        -------
+        num_fg : int
+            minimum number of decap fingers.
+        """
+        return self.get_mos_tech_constants(lch_unit)['min_fg_decap']
+
+    def get_min_fg_sep(self, lch_unit):
+        # type: (int) -> int
+        """Returns the minimum number of dummy fingers needed between active transistors in AnalogBase.
+
+        Parameters
+        ----------
+        lch_unit : int
+            the channel length in resolution units.
+
+        Returns
+        -------
+        num_fg : int
+            minimum number of dummy fingers.
+        """
+        return self.get_mos_tech_constants(lch_unit)['min_fg_sep']
+
+    def get_tech_constant(self, name):
+        # type: (str) -> Any
+        """Returns the value of the given technology constant.
+        
+        Parameters
+        ----------
+        name : str
+            constant name.
+            
+        Returns
+        -------
+        val : Any
+            constant value.
+        """
+        return self.config[name]
+
+    def get_mos_pitch(self, unit_mode=False):
+        # type: (bool) -> Union[float, int]
+        """Returns the transistor vertical placement quantization pitch.
+        
+        This is usually the fin pitch for finfet process.
+        
+        Parameters
+        ----------
+        unit_mode : bool
+            True to return the pitch in resolution units.
+            
+        Returns
+        -------
+        mos_pitch : Union[float, int]
+            the transistor vertical placement quantization pitch.
+        """
+        ans = self.mos_config['mos_pitch']
+        if unit_mode:
+            return ans
+        return ans * self.res
+
+    def get_dum_conn_track_info(self, lch_unit):
         # type: (int) -> Tuple[int, int]
         """Returns dummy connection layer space and width.
         
@@ -736,14 +781,13 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         dum_w : int
             width of dummy tracks in resolution units.
         """
-        mos_constants = cls.get_mos_tech_constants(lch_unit)
+        mos_constants = self.get_mos_tech_constants(lch_unit)
         sd_pitch = mos_constants['sd_pitch']
         dum_conn_w = mos_constants['dum_conn_w']
         num_sd_per_track = mos_constants['num_sd_per_track']
         return sd_pitch * num_sd_per_track - dum_conn_w, dum_conn_w
 
-    @classmethod
-    def get_mos_conn_track_info(cls, lch_unit):
+    def get_mos_conn_track_info(self, lch_unit):
         # type: (int) -> Tuple[int, int]
         """Returns transistor connection layer space and width.
 
@@ -759,15 +803,14 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         tr_w : int
             width of transistor connection tracks in resolution units.
         """
-        mos_constants = cls.get_mos_tech_constants(lch_unit)
+        mos_constants = self.get_mos_tech_constants(lch_unit)
         sd_pitch = mos_constants['sd_pitch']
         mos_conn_w = mos_constants['mos_conn_w']
         num_sd_per_track = mos_constants['num_sd_per_track']
 
         return sd_pitch * num_sd_per_track - mos_conn_w, mos_conn_w
 
-    @classmethod
-    def get_num_fingers_per_sd(cls, lch_unit):
+    def get_num_fingers_per_sd(self, lch_unit):
         # type: (int) -> int
         """Returns the number of transistor source/drain junction per vertical track.
         
@@ -780,11 +823,10 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         -------
         num_sd_per_track : number of source/drain junction per vertical track.
         """
-        mos_constants = cls.get_mos_tech_constants(lch_unit)
+        mos_constants = self.get_mos_tech_constants(lch_unit)
         return mos_constants['num_sd_per_track']
 
-    @classmethod
-    def get_sd_pitch(cls, lch_unit):
+    def get_sd_pitch(self, lch_unit):
         # type: (int) -> int
         """Returns the source/drain pitch in resolution units.
 
@@ -797,11 +839,10 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         -------
         sd_pitch : the source/drain pitch in resolution units.
         """
-        mos_constants = cls.get_mos_tech_constants(lch_unit)
+        mos_constants = self.get_mos_tech_constants(lch_unit)
         return mos_constants['sd_pitch']
 
-    @classmethod
-    def get_placement_info(cls, grid, top_layer, fg_tot, lch_unit, guard_ring_nf,
+    def get_placement_info(self, grid, top_layer, fg_tot, lch_unit, guard_ring_nf,
                            left_end, right_end, is_laygo, **kwargs):
         # type: (RoutingGrid, int, int, int, int, bool, bool, bool, **kwargs) -> PlaceInfo
         """Compute edge block placement information.
@@ -837,18 +878,18 @@ class MOSTech(with_metaclass(abc.ABCMeta, object)):
         place_info : PlaceInfo
             the placement information named tuple.
         """
-        sd_pitch = cls.get_sd_pitch(lch_unit)
-        edgel_info = cls.get_edge_info(lch_unit, guard_ring_nf, left_end, **kwargs)
+        sd_pitch = self.get_sd_pitch(lch_unit)
+        edgel_info = self.get_edge_info(lch_unit, guard_ring_nf, left_end, **kwargs)
         edgel_num_fg = edgel_info['edge_num_fg']
         edgel_margin = edgel_info['edge_margin']
-        edger_info = cls.get_edge_info(lch_unit, guard_ring_nf, right_end, **kwargs)
+        edger_info = self.get_edge_info(lch_unit, guard_ring_nf, right_end, **kwargs)
         edger_num_fg = edger_info['edge_num_fg']
         edger_margin = edger_info['edge_margin']
 
         if is_laygo:
-            top_vm_layer = cls.get_dig_top_layer()
+            top_vm_layer = self.get_dig_top_layer()
         else:
-            top_vm_layer = cls.get_mos_conn_layer()
+            top_vm_layer = self.get_mos_conn_layer()
 
         prim_layer = top_vm_layer + 1
         core_width = (edgel_num_fg + edger_num_fg + fg_tot) * sd_pitch

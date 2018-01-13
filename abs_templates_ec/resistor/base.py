@@ -1,32 +1,11 @@
 # -*- coding: utf-8 -*-
-########################################################################################################################
-#
-# Copyright (c) 2014, Regents of the University of California
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
-# following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-#   disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
-#    following disclaimer in the documentation and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-########################################################################################################################
-
 
 """This module defines abstract analog resistor array component classes.
 """
+
+from typing import TYPE_CHECKING, Dict, Set, Tuple, Any, List, Optional, Union
+
 import abc
-from typing import Dict, Set, Tuple, Any, List, Optional, Union
 
 from bag import float_to_si_string
 from bag.math import lcm
@@ -34,41 +13,32 @@ from bag.util.search import BinaryIterator
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.routing import RoutingGrid
 
+if TYPE_CHECKING:
+    from bag.layout.tech import TechInfoConfig
+
 
 class ResTech(object, metaclass=abc.ABCMeta):
-    @classmethod
-    @abc.abstractmethod
-    def get_bot_layer(cls):
-        # type: () -> int
-        """Returns the layer ID of the bottom horizontal routing layer.
-        
-        Returns
-        -------
-        layer_id : int
-            the bottom horizontal routing layer ID.
-        """
-        return 2
+    """An abstract class for drawing resistor related layout.
 
-    @classmethod
-    @abc.abstractmethod
-    def get_block_pitch(cls):
-        # type: () -> Tuple[int, int]
-        """Returns the horizontal/vertical block pitch of the resistor core in resolution units.  
-        
-        The vertical block pitch is usually the fin pitch.
-        
-        Returns
-        -------
-        x_pitch : int
-            the horizontal block pitch, in resolution units.
-        y_pitch : int
-            the vertical block pitch, in resolution units.
-        """
-        return 1, 1
+    This class defines various methods use to draw layouts used by ResArrayBase.
 
-    @classmethod
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        the technology configuration dictionary.
+    tech_info : TechInfo
+        the TechInfo object.
+    """
+
+    def __init__(self, config, tech_info):
+        # type: (Dict[str, Any], TechInfoConfig) -> None
+        self.config = config
+        self.res_config = self.config['resistor']
+        self.res = self.config['resolution']
+        self.tech_info = tech_info
+
     @abc.abstractmethod
-    def get_min_res_core_size(cls, l, w, res_type, sub_type, threshold, options):
+    def get_min_res_core_size(self, l, w, res_type, sub_type, threshold, options):
         # type: (int, int, str, str, str, Dict[str, Any]) -> Tuple[int, int]
         """Calculate the minimum size of a resistor core based on DRC rules.
 
@@ -99,9 +69,8 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         return 1, 1
 
-    @classmethod
     @abc.abstractmethod
-    def get_core_info(cls,
+    def get_core_info(self,
                       grid,  # type: RoutingGrid
                       width,  # type: int
                       height,  # type: int
@@ -151,9 +120,8 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         return None
 
-    @classmethod
     @abc.abstractmethod
-    def get_lr_edge_info(cls,
+    def get_lr_edge_info(self,
                          grid,  # type: RoutingGrid
                          core_info,  # type: Dict[str, Any]
                          wedge,  # type: int
@@ -203,9 +171,8 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         return None
 
-    @classmethod
     @abc.abstractmethod
-    def get_tb_edge_info(cls,
+    def get_tb_edge_info(self,
                          grid,  # type: RoutingGrid
                          core_info,  # type: Dict[str, Any]
                          hedge,  # type: int
@@ -255,9 +222,8 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         return None
 
-    @classmethod
     @abc.abstractmethod
-    def draw_res_core(cls, template, layout_info):
+    def draw_res_core(self, template, layout_info):
         # type: (TemplateBase, Dict[str, Any]) -> None
         """Draw the resistor core in the given template.
         
@@ -270,9 +236,8 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def draw_res_boundary(cls, template, boundary_type, layout_info, end_mode):
+    def draw_res_boundary(self, template, boundary_type, layout_info, end_mode):
         # type: (TemplateBase, str, Dict[str, Any]) -> None
         """Draw the resistor left/right edge in the given template.
 
@@ -289,8 +254,56 @@ class ResTech(object, metaclass=abc.ABCMeta):
         """
         pass
 
-    @classmethod
-    def get_core_track_info(cls,  # type: ResTech
+    def get_res_imp_layers(self, res_type, sub_type, threshold):
+        # type: (str, str, str) -> List[Tuple[str, str]]
+        """Returns a list of resistor implant layers.
+
+        Parameters
+        ----------
+        res_type : str
+            the resistor type.
+        sub_type : str
+            the resistor substrate type.
+        threshold : str
+            the threshold flavor.
+
+        Returns
+        -------
+        imp_list : List[Tuple[str, str]]
+            a list of implant layers.
+        """
+        imp_layers = self.tech_info.get_implant_layers(sub_type, res_type=res_type)
+        imp_layers.extend(self.res_config['res_layers'][res_type].keys())
+        imp_layers.extend(self.res_config['thres_layers'][sub_type][threshold].keys())
+        return imp_layers
+
+    def get_bot_layer(self):
+        # type: () -> int
+        """Returns the layer ID of the bottom horizontal routing layer.
+
+        Returns
+        -------
+        layer_id : int
+            the bottom horizontal routing layer ID.
+        """
+        return self.res_config['bot_layer']
+
+    def get_block_pitch(self):
+        # type: () -> Tuple[int, int]
+        """Returns the horizontal/vertical block pitch of the resistor core in resolution units.
+
+        The vertical block pitch is usually the fin pitch.
+
+        Returns
+        -------
+        x_pitch : int
+            the horizontal block pitch, in resolution units.
+        y_pitch : int
+            the vertical block pitch, in resolution units.
+        """
+        return self.res_config['block_pitch']
+
+    def get_core_track_info(self,  # type: ResTech
                             grid,  # type: RoutingGrid
                             min_tracks,  # type: Tuple[int, ...]
                             em_specs  # type: Dict[str, Any]
@@ -326,7 +339,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
         track_spaces = []
         prev_width = -1
         min_w = min_h = 0
-        cur_layer = cls.get_bot_layer()
+        cur_layer = self.get_bot_layer()
         for min_num_tr in min_tracks:
             tr_p = grid.get_track_pitch(cur_layer, unit_mode=True)
             cur_width = grid.get_min_track_width(cur_layer, bot_w=prev_width, unit_mode=True, **em_specs)
@@ -348,7 +361,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
 
         # get block size
         wblk, hblk = grid.get_block_size(cur_layer - 1, unit_mode=True, include_private=True)
-        wblk_drc, hblk_drc = cls.get_block_pitch()
+        wblk_drc, hblk_drc = self.get_block_pitch()
         wblk = lcm([wblk, wblk_drc])
         hblk = lcm([hblk, hblk_drc])
         min_w = -(-min_w // wblk) * wblk
@@ -356,8 +369,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
 
         return track_widths, track_spaces, (min_w, min_h), (wblk, hblk)
 
-    @classmethod
-    def find_core_size(cls, grid, params, wres, hres, wblk, hblk, ext_dir, max_blk_ext):
+    def find_core_size(self, grid, params, wres, hres, wblk, hblk, ext_dir, max_blk_ext):
         # type: (RoutingGrid, Dict[str, Any], int, int, int, int, str, int) -> Tuple[int, int, Dict[str, Any]]
         """Compute resistor core size that meets DRC rules.
         
@@ -412,7 +424,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
                     wcur, hcur = ncur * wblk, hres
                 else:
                     wcur, hcur = wres, ncur * hblk
-                tmp = cls.get_core_info(grid, wcur, hcur, **params)
+                tmp = self.get_core_info(grid, wcur, hcur, **params)
                 if tmp is None:
                     bin_iter.up()
                 else:
@@ -446,7 +458,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
                         # this point can't beat current optimum
                         bin_iter.down()
                     else:
-                        tmp = cls.get_core_info(grid, nxcur * wblk, hcur, **params)
+                        tmp = self.get_core_info(grid, nxcur * wblk, hcur, **params)
                         if tmp is None:
                             bin_iter.up()
                         else:
@@ -460,8 +472,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
                                  'additional block pitches.' % max_blk_ext)
             return nxopt, nyopt, ans
 
-    @classmethod
-    def find_edge_size(cls, grid, core_info, is_lr_edge, params, blk1, max_blk_ext):
+    def find_edge_size(self, grid, core_info, is_lr_edge, params, blk1, max_blk_ext):
         # type: (RoutingGrid, Dict[str, Any], bool, Dict[str, Any], int, int) -> Tuple[int, Dict[str, Any]]
         """Compute resistor edge size that meets DRC rules.
 
@@ -496,9 +507,9 @@ class ResTech(object, metaclass=abc.ABCMeta):
             n1 = bin_iter.get_next()
 
             if is_lr_edge:
-                tmp = cls.get_lr_edge_info(grid, core_info, n1 * blk1, **params)
+                tmp = self.get_lr_edge_info(grid, core_info, n1 * blk1, **params)
             else:
-                tmp = cls.get_tb_edge_info(grid, core_info, n1 * blk1, **params)
+                tmp = self.get_tb_edge_info(grid, core_info, n1 * blk1, **params)
 
             if tmp is None:
                 bin_iter.up()
@@ -513,8 +524,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
 
         return bin_iter.get_last_save(), ans
 
-    @classmethod
-    def get_res_info(cls,
+    def get_res_info(self,
                      grid,  # type: RoutingGrid
                      l,  # type: int
                      w,  # type: int
@@ -573,7 +583,7 @@ class ResTech(object, metaclass=abc.ABCMeta):
             pass
 
         # step 1: get track/size parameters
-        track_widths, track_spaces, min_size, blk_pitch = cls.get_core_track_info(grid, min_tracks, em_specs)
+        track_widths, track_spaces, min_size, blk_pitch = self.get_core_track_info(grid, min_tracks, em_specs)
         params = dict(
             l=l,
             w=w,
@@ -585,22 +595,22 @@ class ResTech(object, metaclass=abc.ABCMeta):
             options=options,
         )
         # step 2: get minimum DRC core size, then update with minimum size and round to block size.
-        wres, hres = cls.get_min_res_core_size(l, w, res_type, sub_type, threshold, options)
+        wres, hres = self.get_min_res_core_size(l, w, res_type, sub_type, threshold, options)
         wres = max(wres, min_size[0])
         hres = max(hres, min_size[1])
         wblk, hblk = blk_pitch
         wres = -(-wres // wblk) * wblk
         hres = -(-hres // hblk) * hblk
         # step 3: extend core until density rule is satisfied.
-        nxblk, nyblk, core_info = cls.find_core_size(grid, params, wres, hres, wblk, hblk, ext_dir, max_blk_ext)
+        nxblk, nyblk, core_info = self.find_core_size(grid, params, wres, hres, wblk, hblk, ext_dir, max_blk_ext)
         wcore, hcore = nxblk * wblk, nyblk * hblk
         # step 4: calculate edge size that satisfies density rule.
-        nxblk_lr, edge_lr_info = cls.find_edge_size(grid, core_info, True, params, wblk, max_blk_ext)
-        nyblk_tb, edge_tb_info = cls.find_edge_size(grid, core_info, False, params, hblk, max_blk_ext)
+        nxblk_lr, edge_lr_info = self.find_edge_size(grid, core_info, True, params, wblk, max_blk_ext)
+        nyblk_tb, edge_tb_info = self.find_edge_size(grid, core_info, False, params, hblk, max_blk_ext)
         wedge, hedge = nxblk_lr * wblk, nyblk_tb * hblk
 
         # step 6: calculate geometry information of each primitive block.
-        bot_layer = cls.get_bot_layer()
+        bot_layer = self.get_bot_layer()
         num_tracks = []
         num_corner_tracks = []
         for lay in range(bot_layer, bot_layer + len(min_tracks)):

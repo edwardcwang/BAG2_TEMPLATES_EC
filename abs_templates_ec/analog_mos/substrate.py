@@ -1,36 +1,9 @@
 # -*- coding: utf-8 -*-
-########################################################################################################################
-#
-# Copyright (c) 2014, Regents of the University of California
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
-# following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-#   disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
-#    following disclaimer in the documentation and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-########################################################################################################################
-
-
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-# noinspection PyUnresolvedReferences,PyCompatibility
-from builtins import *
 
 from typing import Dict, Any, Set
 
 from bag import float_to_si_string
+from bag.math import lcm
 from bag.layout.template import TemplateBase, TemplateDB
 
 from .core import MOSTech
@@ -158,11 +131,18 @@ class AnalogSubstrate(TemplateBase):
         top_layer = self.params['top_layer']
         options = self.params['options']
 
+        integ_htr = options.get('integ_htr', False)
+
         res = self.grid.resolution
         lch_unit = int(round(lch / self.grid.layout_unit / res))
 
         if top_layer is not None:
             blk_pitch = self.grid.get_block_size(top_layer, unit_mode=True)[1]
+            if integ_htr:
+                hm_layer = top_layer
+                while self.grid.get_direction(hm_layer) != 'x':
+                    hm_layer -= 1
+                blk_pitch = lcm([blk_pitch, self.grid.get_track_pitch(hm_layer, unit_mode=True)])
         else:
             blk_pitch = 1
         info = self._tech_cls.get_substrate_info(lch_unit, w, sub_type, threshold, fg, blk_pitch=blk_pitch, **options)
