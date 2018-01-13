@@ -37,8 +37,6 @@ res_layer_table:
   # a layer drawn exactly on top of metal resistor,
   # generally used for LVS recognition purposes.
   RPDMY: !!python/tuple ['RPDMY', 'drawing']
-  # the "resistive poly" layer that makes a poly more resistive.
-  RPO: !!python/tuple ['RPO', 'drawing']
   # the resistor layer
   RES: !!python/tuple ['RES', 'drawing']
   # the resistor dummy layer
@@ -433,10 +431,10 @@ resistor:
   edge_margin: 100
   # MP height that connects to RES.
   mp_h: 10
-  # dummy MP vertical space
-  mp_spy_dum: 10
   # dummy MP height
   mp_h_dum: 10
+  # dummy MP vertical space
+  mp_spy_dum: 10
   # vertical extension of RES over MP.
   res_mp_exty: 10
   # RES vertical space
@@ -469,6 +467,8 @@ resistor:
   od_min_density: 0.20
   # FB layer horizontal extension beyond dummy OD
   finfet_od_extx: 10
+  # FB layer vertical extension beyond dummy OD
+  finfet_od_exty: 10
   # implant horizontal enclosure of OD
   imp_od_encx: 10
   # implant vertical enclosure of PO
@@ -479,10 +479,6 @@ resistor:
   rtop_od_ency: 10
   # resistor implant layers list
   imp_layers:
-    nch: {}
-    pch:
-      !!python/tuple [pp, drawing]: [10, 50]
-      !!python/tuple [nw, drawing]: [10, 50]
     ptap:
       !!python/tuple [pp, drawing]: [10, 50]
     ntap:
