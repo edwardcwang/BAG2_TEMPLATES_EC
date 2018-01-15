@@ -347,8 +347,6 @@ mos:
     sp: [10, 10, 10]
     bot_enc_le: [10, 10, 10]
     top_enc_le: [10, 10, 10]
-  # LaygoBase unit cell width in number of fingers
-  laygo_unit_fg: 2
   # True if the source wires in fg2d block are shorted together
   laygo_fg2d_s_short: False
   # number of columns per substrate block
