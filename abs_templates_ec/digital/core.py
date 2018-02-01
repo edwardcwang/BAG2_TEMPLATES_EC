@@ -30,7 +30,7 @@ class DigitalSpace(LaygoBase):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
-        super(DigitalSpace, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
+        LaygoBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_params_info(cls):
@@ -69,7 +69,7 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
         hidden_params['digital_endl_infos'] = None
         hidden_params['digital_endr_infos'] = None
 
-        super(DigitalBase, self).__init__(temp_db, lib_name, params, used_names, hidden_params=hidden_params, **kwargs)
+        TemplateBase.__init__(self, temp_db, lib_name, params, used_names, hidden_params=hidden_params, **kwargs)
         self._laygo_info = None
 
         # initialize attributes
@@ -97,33 +97,37 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
     def laygo_info(self):
         return self._laygo_info
 
-    def initialize(self, row_info, num_rows, draw_boundaries, end_mode, guard_ring_nf=0):
+    def initialize(self, row_info, num_rows, draw_boundaries, end_mode, guard_ring_nf=0, num_col=None):
+        laygo_row_infos = row_info['row_infos']
+
         self._laygo_info = LaygoBaseInfo(self.grid, row_info['config'])
         self.grid = self._laygo_info.grid
         self._row_info = row_info
         self._num_rows = num_rows
         self._row_height = row_info['row_height']
 
-        num_laygo_rows = len(row_info['row_types'])
+        num_laygo_rows = len(laygo_row_infos)
         self._laygo_info.guard_ring_nf = guard_ring_nf
         self._laygo_info.draw_boundaries = draw_boundaries
         self._laygo_info.end_mode = end_mode
-        default_end_info = [self._laygo_info.tech_cls.get_default_end_info()] * num_laygo_rows
-        self._used_list = [LaygoIntvSet(default_end_info) for _ in range(num_rows)]
+        self._laygo_info.set_num_col(num_col)
+
+        tech_cls = self._laygo_info.tech_cls
+        default_end_info = tech_cls.get_default_end_info()
+        default_dig_end_info = [default_end_info] * num_laygo_rows
+
+        self._used_list = [LaygoIntvSet(default_dig_end_info) for _ in range(num_rows)]
 
         lch = self._laygo_info.lch
         top_layer = self._laygo_info.top_layer
         mos_pitch = self._laygo_info.mos_pitch
         tot_height = self._row_height * num_rows
-        tech_cls = self._laygo_info.tech_cls
-        fg_unit = self._laygo_info.unit_fg
 
         bot_extw = row_info['bot_extw']
         bot_sub_extw = row_info['bot_sub_extw']
         bot_extw_tot = bot_extw + bot_sub_extw
 
         # set left and right end informations
-        default_end_info = tech_cls.get_default_end_info()
         self._endl_infos = self.params['digital_endl_infos']
         if self._endl_infos is None:
             self._endl_infos = [[default_end_info] * num_laygo_rows] * num_rows
@@ -139,8 +143,8 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
             top_end = (end_mode & 2) != 0
 
             # create end row and substrate masters
-            mtype = row_info['row_types'][0]
-            thres = row_info['row_thresholds'][0]
+            mtype = laygo_row_infos[0]['row_type']
+            thres = laygo_row_infos[0]['threshold']
             sub_type = 'ptap' if mtype == 'nch' else 'ntap'
             params = dict(
                 lch=lch,
@@ -150,20 +154,17 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                 top_layer=top_layer,
             )
             self._bot_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
+            sub_info = tech_cls.get_laygo_sub_row_info(lch_unit, w_sub, sub_type, thres)
             params = dict(
-                lch=lch,
-                w=w_sub,
-                mos_type=sub_type,
-                threshold=thres,
+                row_info=sub_info,
                 options={},
             )
             self._bot_sub_master = self.new_template(params=params, temp_cls=LaygoSubstrate)
-            sub_info = tech_cls.get_laygo_sub_info(lch_unit, w_sub, sub_type, thres)
             sub_ext_info = sub_info['ext_top_info']
             bot_ext_params = dict(
                 lch=lch,
                 w=bot_extw_tot,
-                fg=fg_unit,
+                fg=1,
                 top_ext_info=row_info['bot_ext_info'],
                 bot_ext_info=sub_ext_info,
                 is_laygo=True,
@@ -186,8 +187,8 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                 top_ext_params['top_ext_info'] = bot_ext_params['bot_ext_info']
                 top_extw_tot = bot_extw_tot
             else:
-                mtype = row_info['row_types'][-1]
-                thres = row_info['row_thresholds'][-1]
+                mtype = laygo_row_infos[-1]['row_type']
+                thres = laygo_row_infos[-1]['threshold']
                 sub_type = 'ptap' if mtype == 'nch' else 'ntap'
                 params = dict(
                     lch=lch,
@@ -197,11 +198,9 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                     top_layer=top_layer,
                 )
                 self._top_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
+                sub_info = tech_cls.get_laygo_sub_row_info(lch_unit, w_sub, sub_type, thres)
                 params = dict(
-                    lch=lch,
-                    w=w_sub,
-                    mos_type=sub_type,
-                    threshold=thres,
+                    row_info=sub_info,
                     options={},
                 )
                 self._top_sub_master = self.new_template(params=params, temp_cls=LaygoSubstrate)
@@ -244,18 +243,13 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                 for intv in self._used_list:
                     num_col = max(num_col, intv.get_end())
 
+            self._laygo_info.set_num_col(num_col)
             self._dig_size = num_col, self._num_rows
 
             top_layer = self._laygo_info.top_layer
-            draw_boundaries = self._laygo_info.draw_boundaries
-            col_width = self._laygo_info.col_width
-            left_margin = self._laygo_info.left_margin
-            right_margin = self._laygo_info.right_margin
 
-            width = col_width * num_col
+            width = self._laygo_info.tot_width
             height = self._ytop[1]
-            if draw_boundaries:
-                width += left_margin + right_margin
 
             bound_box = BBox(0, 0, width, height, self.grid.resolution, unit_mode=True)
             self.set_size_from_bound_box(top_layer, bound_box)
@@ -267,7 +261,6 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
             raise ValueError('Cannot add block at row %d' % row_idx)
 
         col_width = self._laygo_info.col_width
-        left_margin = self._laygo_info.left_margin
 
         intv = self._used_list[row_idx]
         inst_endl = master.get_left_edge_info()
@@ -287,7 +280,7 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                 raise ValueError('Cannot add primitive on row %d, '
                                  'column [%d, %d).' % (row_idx, inst_intv[0], inst_intv[1]))
 
-        x0 = left_margin + col_idx * col_width
+        x0 = self._laygo_info.col_to_coord(col_idx, 's', unit_mode=True)
         if flip:
             x0 += master.digital_size[0]
 
@@ -398,19 +391,20 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
             raise ValueError('Unknonw orientation: %s' % orient)
 
     def _draw_end_substrates(self, port_cols):
+        laygo_info = self._laygo_info
+
         num_col = self._dig_size[0]
-        top_layer = self._laygo_info.top_layer
-        guard_ring_nf = self._laygo_info.guard_ring_nf
-        x0 = self._laygo_info.left_margin
-        spx = self._laygo_info.col_width
-        end_mode = self._laygo_info.end_mode
+        top_layer = laygo_info.top_layer
+        guard_ring_nf = laygo_info.guard_ring_nf
+        end_mode = laygo_info.end_mode
         xr = self.bound_box.right_unit
+        tech_cls = laygo_info.tech_cls
 
         left_end = (end_mode & 4) != 0
         right_end = (end_mode & 8) != 0
 
         if port_cols is None:
-            port_cols = set(range(num_col))
+            port_cols = set(range(0, num_col, 2))
             bot_sub2 = top_sub2 = None
         else:
             port_cols = set(port_cols)
@@ -425,27 +419,29 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
         ytop = self._ytop[0]
         for warrs, m1, m2, y, orient, name in ((bot_warrs, self._bot_sub_master, bot_sub2, ybot, 'R0', 'XBSUB%d'),
                                                (top_warrs, self._top_sub_master, top_sub2, ytop, 'MX', 'XTSUB%d')):
-            xcur = x0
-            for col_idx in range(num_col):
+            port_name = 'VSS' if m1.has_port('VSS') else 'VDD'
+            for col_idx in range(0, num_col, 2):
+                xcur = laygo_info.col_to_coord(col_idx, 's', unit_mode=True)
                 if col_idx in port_cols:
                     inst = self.add_instance(m1, inst_name=name % col_idx, loc=(xcur, y), orient=orient, unit_mode=True)
-                    warrs.extend(inst.get_all_port_pins())
+
+                    warrs.extend(inst.get_all_port_pins(port_name))
                 else:
                     self.add_instance(m2, inst_name=name % col_idx, loc=(xcur, y), orient=orient, unit_mode=True)
-                xcur += spx
 
         edge_infos = []
         for master, y, orient in ((self._bot_sub_master, ybot, 'R0'), (self._top_sub_master, ytop, 'MX')):
             endl = master.get_left_edge_info()
             endr = master.get_right_edge_info()
             rinfo = master.row_info
+            test_blk_info = tech_cls.get_laygo_blk_info('fg2d', rinfo['w_max'], rinfo)
             for x, is_end, flip_lr, end_flag in ((0, left_end, False, endl), (xr, right_end, True, endr)):
                 edge_params = dict(
                     top_layer=top_layer,
                     guard_ring_nf=guard_ring_nf,
                     is_end=is_end,
                     name_id=rinfo['row_name_id'],
-                    layout_info=rinfo['layout_info'],
+                    layout_info=test_blk_info['layout_info'],
                     adj_blk_info=end_flag,
                     is_laygo=True,
                 )
@@ -511,12 +507,14 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                     edge_infos.append((x, yscale * y + yoff, orient, tmp_copy))
                 # add row edges
                 for (y, row_orient, re_params), endl, endr in zip(row_edge_infos, endl_list, endr_list):
+                    cur_row_info = re_params['row_info']
+                    test_blk_info = tech_cls.get_laygo_blk_info('fg2d', cur_row_info['w_max'], cur_row_info)
                     for x, is_end, flip_lr, end_flag in ((0, left_end, False, endl), (xr, right_end, True, endr)):
                         edge_params = re_params.copy()
                         del edge_params['row_info']
                         edge_params['is_end'] = is_end
-                        edge_params['name_id'] = re_params['row_info']['row_name_id']
-                        edge_params['layout_info'] = re_params['row_info']['layout_info']
+                        edge_params['name_id'] = cur_row_info['row_name_id']
+                        edge_params['layout_info'] = test_blk_info['layout_info']
                         edge_params['adj_blk_info'] = end_flag
                         if flip_lr:
                             eorient = 'MY' if row_orient == 'R0' else 'R180'
