@@ -20,7 +20,7 @@ from .core import MOSTech
 if TYPE_CHECKING:
     from bag.layout.tech import TechInfoConfig
 
-ExtInfo = namedtuple('ExtInfo', ['margins', 'od_w', 'imp_min_w', 'mtype', 'thres', 'po_types',
+ExtInfo = namedtuple('ExtInfo', ['margins', 'od_h', 'imp_min_h', 'mtype', 'thres', 'po_types',
                                  'edgel_info', 'edger_info'])
 RowInfo = namedtuple('RowInfo', ['od_x_list', 'od_type', 'od_y', 'po_y', 'md_y'])
 AdjRowInfo = namedtuple('AdjRowInfo', ['po_y', 'po_types'])
@@ -306,6 +306,119 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         """
         return None, []
 
+    def postprocess_mos_tech_constants(self, lch_unit, mos_constants):
+        # type: (int, Dict[str, Any]) -> None
+        """Optional method subclasses can override to add more entries to mos_constants."""
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        offset, h_scale, p_scale = mos_constants.get('od_fin_exty_constants', (0, 0, 0))
+        mos_constants['od_fin_exty'] = offset + int(round(h_scale * fin_h)) + int(round(p_scale * fin_p))
+
+    def get_od_w(self, lch_unit, fg):
+        # type: (int, int) -> int
+        """Calculate OD width."""
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        sd_pitch = mos_constants['sd_pitch']
+        po_od_extx = mos_constants['po_od_extx']
+        return (fg - 1) * sd_pitch + lch_unit + 2 * po_od_extx
+
+    def get_od_h(self, lch_unit, w):
+        # type: (int, int) -> int
+        """Calculate OD height."""
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        od_fin_exty = mos_constants['od_fin_exty']
+        return (w - 1) * fin_p + fin_h + 2 * od_fin_exty
+
+    def get_od_h_inverse(self, lch_unit, od_h, round_up=None):
+        # type: (int, int) -> int
+        """Calculate number of fins from OD height."""
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        od_fin_exty = mos_constants['od_fin_exty']
+
+        q = od_h - 2 * od_fin_exty - fin_h
+        if round_up is None and q % fin_p != 0:
+            raise ValueError('OD height %d is not on fin grid.' % od_h)
+        elif round_up:
+            w = -(-q // fin_p) + 1
+        else:
+            w = q // fin_p + 1
+        return w
+
+    def get_od_spy_nfin(self, lch_unit, sp, round_up=True):
+        # type: (int, int) -> int
+        """Calculate OD vertical space in number of fin pitches, rounded up.
+
+        Space of 0 means no fins are between the two OD.
+        """
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        od_fin_exty = mos_constants['od_fin_exty']
+
+        q = sp + fin_h + 2 * od_fin_exty - fin_p
+        return -(-q // fin_p) if round_up else q // fin_p
+
+    def get_od_spx_fg(self, lch_unit, sp):
+        """Calculate OD horizontal space in number of fingers, rounded up.
+
+        Space of 0 means no PO are between the PODEs.
+        """
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        sd_pitch = mos_constants['sd_pitch']
+        po_od_exty = mos_constants['po_od_exty']
+
+        return -(-(sp + 2 * po_od_exty + lch_unit - 3 * sd_pitch) // sd_pitch)
+
+    def get_fin_idx(self, lch_unit, od_y, top_edge, round_up=None):
+        # type: (int, int, bool, bool) -> int
+        """Get fin index from OD top/bottom edge coordinate."""
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        od_fin_exty = mos_constants['od_fin_exty']
+
+        fin_p2 = fin_p // 2
+        fin_h2 = fin_h // 2
+        delta = fin_h2 + od_fin_exty
+        if not top_edge:
+            delta *= -1
+
+        quantity = od_y - delta - fin_p2
+        if round_up is None and quantity % fin_p != 0:
+            raise ValueError('OD coordinate %d is not on fin grid.' % od_y)
+        elif round_up:
+            fin_idx = -(-quantity // fin_p)
+        else:
+            fin_idx = quantity // fin_p
+
+        return fin_idx
+
+    def get_od_edge(self, lch_unit, fin_idx, top_edge):
+        # type: (int, int, bool) -> int
+        """Get OD edge Y coordinate from fin index."""
+        mos_constants = self.get_mos_tech_constants(lch_unit)
+        fin_h = mos_constants['fin_h']
+        fin_p = mos_constants['mos_pitch']
+        od_fin_exty = mos_constants['od_fin_exty']
+
+        fin_p2 = fin_p // 2
+        fin_h2 = fin_h // 2
+        delta = fin_h2 + od_fin_exty
+        if not top_edge:
+            delta *= -1
+
+        return fin_idx * fin_p + fin_p2 + delta
+
+    def snap_od_edge(self, lch_unit, od_y, top_edge, round_up):
+        # type: (int, int, bool, bool) -> int
+        """Snap the OD horizontal edge to fin grid."""
+        fin_idx = self.get_fin_idx(lch_unit, od_y, top_edge, round_up=round_up)
+        return self.get_od_edge(lch_unit, fin_idx, top_edge)
+
     def get_edge_info(self, lch_unit, guard_ring_nf, is_end, **kwargs):
         # type: (int, int, bool, **kwargs) -> Dict[str, Any]
         is_sub_ring = kwargs.get('is_sub_ring', False)
@@ -322,6 +435,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         fg_gr_min = mos_constants['fg_gr_min']
         fg_outer_min = mos_constants['fg_outer_min']
         cpo_po_extx = mos_constants['cpo_po_extx']
+        po_od_extx = mos_constants['po_od_extx']
 
         if 0 < guard_ring_nf < fg_gr_min:
             raise ValueError('guard_ring_nf = %d < %d' % (guard_ring_nf, fg_gr_min))
@@ -331,12 +445,12 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # step 0: figure out implant/OD enclosure and outer edge margin
         outer_margin = edge_margin
         if dnw_mode:
-            od_w = (fg_gr_min + 1) * sd_pitch + lch_unit
+            od_w = self.get_od_w(lch_unit, fg_gr_min)
             imp_od_encx = max(imp_od_encx, (nw_dnw_ovl + nw_dnw_ext - od_w) // 2)
             outer_margin = dnw_margins[dnw_mode] - nw_dnw_ext
 
         # calculate implant left X coordinate distance from right edge
-        od_delta = (sd_pitch + lch_unit) // 2
+        od_delta = po_od_extx - (sd_pitch - lch_unit) // 2
         imp_delta = od_delta + imp_od_encx
 
         # compute number of finger needed to have correct implant enclosure
@@ -407,10 +521,11 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         po_types = (1,) * fg
         mtype = (mos_type, mos_type)
+        od_h = self.get_od_h(lch_unit, w)
         ext_top_info = ExtInfo(
             margins=top_margins,
-            od_w=w,
-            imp_min_w=0,
+            od_h=od_h,
+            imp_min_h=0,
             mtype=mtype,
             thres=threshold,
             po_types=po_types,
@@ -419,8 +534,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         )
         ext_bot_info = ExtInfo(
             margins=bot_margins,
-            od_w=w,
-            imp_min_w=0,
+            od_h=od_h,
+            imp_min_h=0,
             mtype=mtype,
             thres=threshold,
             po_types=po_types,
@@ -504,7 +619,6 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         #. Return the list of valid extension widths
         """
         mos_constants = self.get_mos_tech_constants(lch_unit)
-        fin_h = mos_constants['fin_h']  # type: int
         fin_p = mos_constants['mos_pitch']  # type: int
         od_spy_max = mos_constants['od_spy_max']
         od_nfin_min = mos_constants['od_fill_h'][0]
@@ -516,21 +630,20 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         md_od_exty = mos_constants['md_od_exty']
         md_spy = mos_constants['md_spy']
 
-        fin_p2 = fin_p // 2
-        fin_h2 = fin_h // 2
-        od_spy_nfin_max = (od_spy_max - (fin_p - fin_h)) // fin_p
+        od_spy_nfin_max = self.get_od_spy_nfin(lch_unit, od_spy_max, round_up=False)
 
-        bot_imp_min_w = bot_ext_info.imp_min_w  # type: int
-        top_imp_min_w = top_ext_info.imp_min_w  # type: int
+        bot_imp_min_h = bot_ext_info.imp_min_h  # type: int
+        top_imp_min_h = top_ext_info.imp_min_h  # type: int
 
         # step 1: get minimum extension width from vertical spacing rule
-        min_ext_w = max(0, -(-(bot_imp_min_w + top_imp_min_w) // fin_p))
+        min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // fin_p))
         for name, (tm, cur_spy) in top_ext_info.margins.items():
             tot_margin = cur_spy - (tm + bot_ext_info.margins[name][0])
-            min_ext_w = max(min_ext_w, -(-tot_margin // fin_p))
+            min_ext_h = max(min_ext_h, -(-tot_margin // fin_p))
 
         # step 2: get maximum extension width without dummy OD
-        od_space_nfin = (top_ext_info.margins['od'][0] + bot_ext_info.margins['od'][0] + fin_h) // fin_p
+        od_space_nfin = self.get_od_spy_nfin(lch_unit, top_ext_info.margins['od'][0] + bot_ext_info.margins['od'][0],
+                                             round_up=True)
         max_ext_w_no_od = od_spy_nfin_max - od_space_nfin
 
         # step 3: find minimum extension width with dummy OD
@@ -543,21 +656,21 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # get od_yb_max1, round to fin grid.
         dum_md_yb = -bot_ext_info.margins['md'][0] + md_spy
         od_yb_max1 = max(dum_md_yb + md_od_exty, cpo_h // 2 + cpo_od_sp)
-        od_yb_max1 = -(-(od_yb_max1 - fin_p2 + fin_h2) // fin_p)
+        od_yb_max1 = self.snap_od_edge(lch_unit, od_yb_max1, False, True)
         # get od_yb_max2, round to fin grid.
-        od_yb_max = bot_imp_min_w + imp_od_ency
-        od_yb_max = max(od_yb_max1, -(-(od_yb_max - fin_p2 + fin_h2) // fin_p))
+        od_yb_max = bot_imp_min_h + imp_od_ency
+        od_yb_max = max(od_yb_max1, self.snap_od_edge(lch_unit, od_yb_max, False, True))
 
         # get od_yt_min1 assuming yt = 0, round to fin grid.
         dum_md_yt = top_ext_info.margins['md'][0] - md_spy
         od_yt_min1 = min(dum_md_yt - md_od_exty, -(cpo_h // 2) - cpo_od_sp)
-        od_yt_min1 = (od_yt_min1 - fin_p2 - fin_h2) // fin_p
+        od_yt_min1 = self.snap_od_edge(lch_unit, od_yt_min1, True, False)
         # get od_yt_min2, round to fin grid.
-        od_yt_min = -top_imp_min_w - imp_od_ency
-        od_yt_min = min(od_yt_min1, (od_yt_min - fin_p2 - fin_h2) // fin_p)
+        od_yt_min = -top_imp_min_h - imp_od_ency
+        od_yt_min = min(od_yt_min1, self.snap_od_edge(lch_unit, od_yt_min, True, False))
 
         # get minimum extension width from OD related spacing rules
-        min_ext_w_od = max(0, od_nfin_min - (od_yt_min - od_yb_max) - 1) * fin_p
+        min_ext_w_od = max(0, self.get_od_h(lch_unit, od_nfin_min) - (od_yt_min - od_yb_max))
         # check to see CPO spacing rule is satisfied
         min_ext_w_od = max(min_ext_w_od, cpo_spy + cpo_h)
         # check to see MD minimum height rule is satisfied
@@ -567,10 +680,10 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         if min_ext_w_od <= max_ext_w_no_od + 1:
             # we can transition from no-dummy to dummy seamlessly
-            return [min_ext_w]
+            return [min_ext_h]
         else:
             # there exists extension widths such that we need dummies but cannot draw it
-            width_list = list(range(min_ext_w, max_ext_w_no_od + 1))
+            width_list = list(range(min_ext_h, max_ext_w_no_od + 1))
             width_list.append(min_ext_w_od)
             return width_list
 
@@ -581,17 +694,13 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         minimum OD density rules are met.
         """
         mos_constants = self.get_mos_tech_constants(lch_unit)
-        fin_h = mos_constants['fin_h']
-        fin_p = mos_constants['mos_pitch']
         od_nfin_min, od_nfin_max = mos_constants['od_fill_h']
         od_spy = mos_constants['od_spy']
         od_spy_max = mos_constants['od_spy_max']
         od_min_density = mos_constants['od_min_density']
 
-        od_yb_offset = (fin_p - fin_h) // 2
-        od_yt_offset = od_yb_offset + fin_h
-        od_spy_nfin_min = (od_spy - (fin_p - fin_h)) // fin_p
-        od_spy_nfin_max = (od_spy_max - (fin_p - fin_h)) // fin_p
+        od_spy_nfin_min = self.get_od_spy_nfin(lch_unit, od_spy, round_up=True)
+        od_spy_nfin_max = self.get_od_spy_nfin(lch_unit, od_spy_max, round_up=False)
 
         # compute MD/OD locations.
         bot_od_yt = -bot_ext_info.margins['od'][0]
@@ -599,16 +708,16 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # check if we can just not draw anything
         if top_od_yb - bot_od_yt <= od_spy_max:
             return []
-        bot_od_fidx = (bot_od_yt - od_yt_offset) // fin_p
-        top_od_fidx = (top_od_yb - od_yb_offset) // fin_p
+        bot_od_fidx = self.get_fin_idx(lch_unit, bot_od_yt, True)
+        top_od_fidx = self.get_fin_idx(lch_unit, top_od_yb, False)
 
         # compute OD fill area needed to meet density
-        bot_od_w = (bot_ext_info.od_w - 1) * fin_p + fin_h
-        top_od_w = (top_ext_info.od_w - 1) * fin_p + fin_h
-        od_area_adj = (bot_od_w + top_od_w) // 2
+        bot_od_h = bot_ext_info.od_h
+        top_od_h = top_ext_info.od_h
+        od_area_adj = (bot_od_h + top_od_h) // 2
         od_area_tot = top_od_yb - bot_od_yt + od_area_adj
         od_area_targ = int(math.ceil(od_area_tot * od_min_density)) - od_area_adj
-        od_fin_area_min = -(-(od_area_targ - fin_h) // fin_p) + 1
+        od_fin_area_min = self.get_od_h_inverse(lch_unit, od_area_targ, round_up=True)
         od_fin_area_tot = top_od_fidx - bot_od_fidx - 1
         od_fin_area_iter = BinaryIterator(od_fin_area_min, od_fin_area_tot + 1)
 
@@ -624,7 +733,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
             # compute actual OD area
             od_intv_list = fill_symmetric_interval(*fill_info[0][2], offset=bot_od_fidx + 1, invert=fill_info[1])[0]
-            od_area_cur = sum(((stop - start - 1) * fin_p + fin_h for start, stop in od_intv_list))
+            od_area_cur = sum((self.get_od_h(lch_unit, stop - start) for start, stop in od_intv_list))
             if od_area_cur >= od_area_targ:
                 od_fin_area_iter.save_info(od_intv_list)
                 od_fin_area_iter.down()
@@ -638,7 +747,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         # convert fin interval to Y coordinates
         od_intv_list = od_fin_area_iter.get_last_save_info()
-        return [(start * fin_p + od_yb_offset, stop * fin_p + od_yt_offset) for start, stop in od_intv_list]
+        return [(self.get_od_edge(lch_unit, start, False),
+                 self.get_od_edge(lch_unit, stop, False)) for start, stop in od_intv_list]
 
     def _get_dummy_yloc(self, lch_unit, bot_ext_info, top_ext_info, yblk):
         """Compute dummy OD/MD/PO/CPO Y intervals in extension block.
@@ -647,8 +757,6 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         if MD spacing rules are violated.
         """
         mos_constants = self.get_mos_tech_constants(lch_unit)
-        fin_h = mos_constants['fin_h']
-        fin_p = mos_constants['mos_pitch']
         od_nfin_min, od_nfin_max = mos_constants['od_fill_h']
         od_spy = mos_constants['od_spy']
         md_h_min = mos_constants['md_h_min']
@@ -657,9 +765,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         cpo_h = mos_constants['cpo_h']
         cpo_od_sp = mos_constants['cpo_od_sp']
 
-        od_yb_offset = (fin_p - fin_h) // 2
-        od_yt_offset = od_yb_offset + fin_h
-        od_h_min = (od_nfin_min - 1) * fin_p + fin_h
+        od_h_min = self.get_od_h(lch_unit, od_nfin_min)
 
         # compute MD/OD locations.
         bot_md_yt = -bot_ext_info.margins['md'][0]
@@ -682,8 +788,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         if md_y_list[0][0] < bot_md_yt + md_spy or od_y_list[0][0] < cpo_bot_yt + cpo_od_sp:
             od_yt = od_y_list[0][1]
             od_bot_correct = max(cpo_bot_yt + cpo_od_sp, bot_md_yt + md_spy + md_od_exty)
-            od_bot_fidx = -(-(od_bot_correct - od_yb_offset) // fin_p)
-            od_yb = od_bot_fidx * fin_p + od_yb_offset
+            od_yb = self.snap_od_edge(lch_unit, od_bot_correct, False, True)
             od_yt = max(od_yb + od_h_min, od_yt)
             od_y_list[0] = od_yb, od_yt
             md_h = max(md_h_min, od_yt - od_yb + 2 * md_od_exty)
@@ -692,8 +797,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         if md_y_list[-1][1] > top_md_yb - md_spy or od_y_list[-1][1] > cpo_top_yb - cpo_od_sp:
             od_yb = od_y_list[-1][0]
             od_top_correct = min(cpo_top_yb - cpo_od_sp, top_md_yb - md_spy - md_od_exty)
-            od_top_fidx = (od_top_correct - od_yt_offset) // fin_p
-            od_yt = od_top_fidx * fin_p + od_yt_offset
+            od_yt = self.snap_od_edge(lch_unit, od_top_correct, True, False)
             od_yb = min(od_yt - od_h_min, od_yb)
             od_y_list[-1] = od_yb, od_yt
             md_h = max(md_h_min, od_yt - od_yb + 2 * md_od_exty)
@@ -901,7 +1005,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             else:
                 od_fg_min = self.get_analog_unit_fg()
                 od_fg_max = (od_fill_w_max - lch_unit) // sd_pitch - 1
-                od_spx_fg = -(-(od_spx - sd_pitch + lch_unit) // sd_pitch) + 2
+                od_spx_fg = self.get_od_spx_fg(lch_unit, od_spx) + 2
                 od_x_list = fill_symmetric_max_density(fg, fg, od_fg_min, od_fg_max, od_spx_fg,
                                                        fill_on_edge=True, cyclic=False)[0]
 
@@ -1172,8 +1276,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             ans['ext_info'] = ExtInfo(
                 margins={key: (val[0] + arr_yt, val[1])
                          for key, val in end_ext_info.margins.items()},
-                od_w=end_ext_info.od_w,
-                imp_min_w=0,
+                od_h=end_ext_info.od_h,
+                imp_min_h=0,
                 mtype=end_ext_info.mtype,
                 thres=threshold,
                 po_types=(1,) * fg,
@@ -1411,6 +1515,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             right_blk_info=adj_blk_info[0],
         )
 
+    # noinspection PyMethodMayBeStatic
     def draw_mos_rect(self, template, layer, bbox):
         # type: (TemplateBase, Tuple[str, str], BBox) -> None
         """This method draws the given transistor layer geometry.

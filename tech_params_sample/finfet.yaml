@@ -209,6 +209,10 @@ mos:
   od_fill_h: !!python/tuple [1, 10]
   # dummy OD maximum width, in resolution units.
   od_fill_w_max: !!null
+  # Optional: OD vertical extension over fins.
+  # calculated as val[0] + val[1] * fin_h + val[2] * fin_p
+  # defaults to (0, 0, 0)
+  od_fin_exty_constants: !!python/tuple [0, 0, 0]
   # horizontal enclosure of implant layers over OD
   imp_od_encx: 50
   # implant layers vertical enclosure of active.
@@ -311,10 +315,16 @@ mos:
   num_sd_per_track:
     lch: [.inf]
     val: [1]
-  # PO extension over OD
+  # PO vertical extension over OD
   po_od_exty:
     lch: [.inf]
     val: [10]
+  # OD horizontal extension over PO.
+  # value specified as a (offset, lch_scale, sd_pitch_scale) tuple, where the extension is
+  # computed as offset + lch_scale * lch_unit + sd_pitch_scale * sd_pitch_unit
+  po_od_extx_constants:
+    lch: [.inf]
+    val: [[10, 0, 0]]
   # gate M1 dummy wire height
   g_m1_dum_h: 50
   # gate wire bottom layer ID

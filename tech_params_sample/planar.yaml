@@ -238,10 +238,17 @@ mos:
   po_od_exty:
     lch: [.inf]
     val: [10]
-  # OD horizontal extension over PO
-  po_od_extx:
+  # OD horizontal extension over PO.
+  # DEPRECATED: specify a constant number directly.
+  # po_od_extx:
+  #   lch: [.inf]
+  #   val: [10]
+  # OD horizontal extension over PO.
+  # value specified as a (offset, lch_scale, sd_pitch_scale) tuple, where the extension is
+  # computed as offset + lch_scale * lch_unit + sd_pitch_scale * sd_pitch_unit
+  po_od_extx_constants:
     lch: [.inf]
-    val: [10]
+    val: [[10, 0, 0]]
   # minimum PO height
   po_h_min:
     lch: [.inf]
