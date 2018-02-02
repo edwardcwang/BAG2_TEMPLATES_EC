@@ -11,14 +11,18 @@ use_flip_parity: False
 mos_layer_table:
   # poly
   PO: !!python/tuple ['Poly', 'drawing']
-  # dummy poly
+  # substrate poly
+  PO_sub: !!python/tuple ['Poly', 'drawing']
+  # dummy poly on dummy OD
+  PO_gate_dummy: !!python/tuple ['Poly', 'dummy']
+  # dummy poly not on any OD
   PO_dummy: !!python/tuple ['Poly', 'dummy']
   # edge poly
   PO_edge: !!python/tuple ['Poly', 'edge']
+  # edge poly on substrate OD
+  PO_edge_sub: !!python/tuple ['Poly', 'edge']
   # edge poly on dummy OD
   PO_edge_dummy: !!python/tuple ['Poly', 'edge']
-  # dummy poly on dummy OD
-  PO_gate_dummy: !!python/tuple ['Poly', 'dummy']
   # Poly-on-OD-edge layer
   PODE: !!null
   # active
