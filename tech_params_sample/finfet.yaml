@@ -13,6 +13,12 @@ mos_layer_table:
   PO: !!python/tuple ['Poly', 'drawing']
   # dummy poly
   PO_dummy: !!python/tuple ['Poly', 'dummy']
+  # edge poly
+  PO_edge: !!python/tuple ['Poly', 'drawing']
+  # edge poly on dummy OD
+  PO_edge_dummy: !!python/tuple ['Poly', 'dummy']
+  # dummy poly on dummy OD
+  PO_gate_dummy: !!python/tuple ['Poly', 'dummy']
   # Poly-on-OD-edge layer
   PODE: !!python/tuple ['Poly', 'edge']
   # active
