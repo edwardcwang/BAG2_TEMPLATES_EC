@@ -299,6 +299,8 @@ mos:
   dig_conn_layer: 1
   # LaygoBase top layer.
   dig_top_layer: 2
+  # transistor/dummy connections modulus
+  mos_conn_modulus: 1
   # minimum OD density
   od_min_density: 0.20
   # dummy OD height range, in number of fins
