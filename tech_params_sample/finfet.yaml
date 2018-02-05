@@ -314,6 +314,9 @@ mos:
   imp_od_ency: 45
   # minimum implant layer width
   imp_min_w: 52
+  # dictionary from implant layers to X-delta in outer edge blocks.
+  imp_edge_dx:
+    !!python/tuple [pp, drawing]: [0, 0, 0]
   # overlap between NW layer and DNW layer.
   nw_dnw_ovl: 100
   # extension of NW layer over DNW layer.
@@ -565,9 +568,8 @@ resistor:
   rpo_extx: 50
   # margin needed on the edges
   edge_margin: 48
-  # dictionary from implant layers to X-delta in outer edge blocks.
-  imp_edge_dx:
-    !!python/tuple [pp, drawing]: [0, 0, 0]
+  # enclosure of implant layers in horizontal/vertical direction
+  imp_enc: [50, 50]
   # resistor implant layers list
   imp_layers:
     nch: {}
