@@ -565,8 +565,9 @@ resistor:
   rpo_extx: 50
   # margin needed on the edges
   edge_margin: 48
-  # enclosure of implant layers in horizontal/vertical direction
-  imp_enc: [50, 50]
+  # dictionary from implant layers to X-delta in outer edge blocks.
+  imp_edge_dx:
+    !!python/tuple [pp, drawing]: [0, 0, 0]
   # resistor implant layers list
   imp_layers:
     nch: {}
