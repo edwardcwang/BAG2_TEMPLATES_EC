@@ -287,6 +287,8 @@ mos:
   floating_dummy: False
   # True if AnalogMosConn can abut each other.
   abut_analog_mos: True
+  # True if dummies cannot be drawn on substrate region.
+  no_sub_dummy: False
   # channel length used in substrate rings.
   sub_ring_lch: 18.0e-9
   # vertical dummy wires pitch, in routing grid tracks.
