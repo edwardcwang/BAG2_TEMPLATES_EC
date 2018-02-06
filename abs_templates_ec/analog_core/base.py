@@ -702,6 +702,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         # get orientation, width, and source/drain center
         ridx = self._ridx_lookup[mos_type][row_idx]
         orient = self._orient_list[ridx]
+        mos_kwargs = self._mos_kwargs_list[ridx].copy()
         w = self._w_list[ridx]
         xc, yc = self._layout_info.sd_xc_unit, self._sd_yc_list[ridx]
         xc += start * self.sd_pitch_unit
@@ -736,12 +737,15 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # setup parameter list
         loc = xc, yc
+        lch_unit = int(round(self._lch / self.grid.layout_unit / self.grid.resolution))
+        mos_kwargs['source_parity'] = self._tech_cls.get_mos_conn_modulus(lch_unit)
         params = dict(
             lch=self._lch,
             w=w,
             fg=fg,
             edge_mode=edge_mode,
             gate_tracks=dum_tr_list,
+            options=mos_kwargs,
         )
         conn_master = self.new_template(params=params, temp_cls=AnalogMOSDummy)
         conn_inst = self.add_instance(conn_master, loc=loc, orient=orient, unit_mode=True)
@@ -910,6 +914,8 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
 
         loc = xc, yc
         mos_kwargs.update(kwargs)
+        lch_unit = int(round(self._lch / self.grid.layout_unit / self.grid.resolution))
+        mos_kwargs['source_parity'] = self._tech_cls.get_mos_conn_modulus(lch_unit)
         conn_params = dict(
             lch=self._lch,
             w=w,
