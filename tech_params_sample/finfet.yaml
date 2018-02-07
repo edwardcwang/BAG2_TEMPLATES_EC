@@ -271,6 +271,8 @@ mos:
   od_spx: 50
   # minimum vertical space between OD, in resolution units
   od_spy: 10
+  # minimum vertical space between real OD and dummy OD, in resolution units
+  od_spy_dum: 10
   # maximum vertical space between OD, in resolution units
   od_spy_max: 600
   # Optional: OD vertical extension over fins.
