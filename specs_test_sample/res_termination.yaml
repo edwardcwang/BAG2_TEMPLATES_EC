@@ -37,3 +37,11 @@ params:
   em_specs: {}
   ext_dir: ''
   well_end_mode: 1
+
+em_params:
+  res_targ: 50
+  num_even: True
+  em_specs:
+    idc: 0.0
+    iac_rms: 1.0e-3
+    iac_peak: 0.0

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pprint
+
 import yaml
 
 from bag.core import BagProject
@@ -44,6 +46,33 @@ def generate(prj, specs):
     print('done')
 
 
+def generate_em(prj, specs):
+    impl_lib = specs['impl_lib']
+    impl_cell = specs['impl_cell']
+    params = specs['params'].copy()
+    em_params = specs['em_params']
+
+    temp_db = make_tdb(prj, impl_lib, specs)
+    tech_info = temp_db.grid.tech_info
+
+    res_type = params['res_type']
+    res_targ = em_params['res_targ']
+    num_even = em_params['num_even']
+    em_specs = em_params['em_specs']
+    num_par, num_ser, w, l = tech_info.design_resistor(res_type, res_targ,
+                                                       num_even=num_even, **em_specs)
+    params['nx'] = num_ser * 2
+    params['ny'] = num_par
+    params['l'] = l
+    params['w'] = w
+
+    pprint.pprint(params)
+    temp_list = [temp_db.new_template(params=params, temp_cls=Termination, debug=False), ]
+    print('creating layout')
+    temp_db.batch_layout(prj, temp_list, [impl_cell])
+    print('done')
+
+
 if __name__ == '__main__':
 
     with open('specs_test/res_termination.yaml', 'r') as f:
@@ -59,4 +88,5 @@ if __name__ == '__main__':
         bprj = local_dict['bprj']
 
     # generate_core(bprj, block_specs)
-    generate(bprj, block_specs)
+    # generate(bprj, block_specs)
+    generate_em(bprj, block_specs)
