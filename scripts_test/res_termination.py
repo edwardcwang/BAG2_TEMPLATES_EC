@@ -21,27 +21,30 @@ def make_tdb(prj, target_lib, specs):
 
 
 def generate_core(prj, specs):
-    temp_db = make_tdb(prj, impl_lib, specs)
+    impl_lib = specs['impl_lib']
+    impl_cell = specs['impl_cell']
     params = specs['core_params']
 
+    temp_db = make_tdb(prj, impl_lib, specs)
+
     temp_list = [temp_db.new_template(params=params, temp_cls=TerminationCore, debug=False), ]
-    temp_db.batch_layout(prj, temp_list, ['TERM_CORE'])
+    temp_db.batch_layout(prj, temp_list, [impl_cell + '_CORE'])
     print('done')
 
 
 def generate(prj, specs):
-
-    temp_db = make_tdb(prj, impl_lib, specs)
+    impl_lib = specs['impl_lib']
+    impl_cell = specs['impl_cell']
     params = specs['params']
 
+    temp_db = make_tdb(prj, impl_lib, specs)
+
     temp_list = [temp_db.new_template(params=params, temp_cls=Termination, debug=False), ]
-    temp_db.batch_layout(prj, temp_list, ['TERM'])
+    temp_db.batch_layout(prj, temp_list, [impl_cell])
     print('done')
 
 
 if __name__ == '__main__':
-
-    impl_lib = 'AAAFOO_TERMINATION'
 
     with open('specs_test/res_termination.yaml', 'r') as f:
         block_specs = yaml.load(f)
@@ -55,5 +58,5 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    generate_core(bprj, block_specs)
-    # generate(bprj, block_specs)
+    # generate_core(bprj, block_specs)
+    generate(bprj, block_specs)

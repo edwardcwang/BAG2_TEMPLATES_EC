@@ -1,3 +1,8 @@
+impl_lib: 'AAAFOO_TEST_TERMINATION'
+impl_cell: 'TERMINATION'
+sch_lib: ''
+sch_cell: ''
+
 routing_grid:
   layers: [4, 5]
   spaces: [0.2, 0.2]
@@ -5,27 +10,30 @@ routing_grid:
   bot_dir: 'y'
 
 core_params:
-  l: !!float 2e-6
-  w: !!float 0.4e-6
-  res_type: standard
-  sub_type: ntap
+  l: 2.0e-6
+  w: 0.4e-6
+  res_type: 'standard'
+  grid_type: 'standard'
+  sub_type: 'ptap'
   threshold: standard
   nx: 4
   ny: 4
   em_specs: {}
   ext_dir: ""
   show_pins: True
+  top_layer: 4
 
 params:
-  l: !!float 2e-6
-  w: !!float 0.4e-6
-  sub_lch: !!float 20e-9
-  sub_w: !!float 0.4e-6
-  res_type: standard
-  sub_type: ntap
-  threshold: standard
+  l: 2.0e-6
+  w: 0.0
+  sub_lch: 20.0e-9
+  sub_w: 0
+  res_type: 'standard'
+  grid_type: 'standard'
+  sub_type: 'ptap'
+  threshold: 'standard'
   nx: 4
   ny: 4
   em_specs: {}
-  ext_dir: ""
+  ext_dir: ''
   well_end_mode: 1
