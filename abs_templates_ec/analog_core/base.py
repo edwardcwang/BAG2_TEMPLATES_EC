@@ -365,6 +365,8 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         self._sd_yc_list = None
         self._mos_kwargs_list = None
         self._layout_info = None
+        self._sub_parity = 0
+        self._sub_integ_htr = False
         self._dum_conn_pitch = self._tech_cls.get_dum_conn_pitch()
         if self._dum_conn_pitch != 1 and self._dum_conn_pitch != 2:
             raise ValueError('Current only support dum_conn_pitch = 1 or 2, but it is %d' % self._dum_conn_pitch)
@@ -738,7 +740,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         # setup parameter list
         loc = xc, yc
         lch_unit = int(round(self._lch / self.grid.layout_unit / self.grid.resolution))
-        mos_kwargs['source_parity'] = self._tech_cls.get_mos_conn_modulus(lch_unit)
+        mos_kwargs['source_parity'] = start % self._tech_cls.get_mos_conn_modulus(lch_unit)
         params = dict(
             lch=self._lch,
             w=w,
@@ -915,7 +917,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         loc = xc, yc
         mos_kwargs.update(kwargs)
         lch_unit = int(round(self._lch / self.grid.layout_unit / self.grid.resolution))
-        mos_kwargs['source_parity'] = self._tech_cls.get_mos_conn_modulus(lch_unit)
+        mos_kwargs['source_parity'] = col_idx % self._tech_cls.get_mos_conn_modulus(lch_unit)
         conn_params = dict(
             lch=self._lch,
             w=w,
@@ -975,7 +977,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
                 sub_type=sub_type,
                 threshold=th_list[0],
                 top_layer=None,
-                options=dict(guard_ring_nf=guard_ring_nf),
+                options=dict(guard_ring_nf=guard_ring_nf, integ_htr=self._sub_integ_htr),
             )
             master_list.append(self.new_template(params=sub_params, temp_cls=AnalogSubstrate))
             track_spec_list.append(('R0', -1, -1))
@@ -1012,7 +1014,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
                 sub_type=sub_type,
                 threshold=th_list[-1],
                 top_layer=None,
-                options=dict(guard_ring_nf=guard_ring_nf),
+                options=dict(guard_ring_nf=guard_ring_nf, integ_htr=self._sub_integ_htr),
             )
             master_list.append(self.new_template(params=sub_params, temp_cls=AnalogSubstrate))
             track_spec_list.append(('MX', -1, -1))
@@ -1327,7 +1329,8 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         track_spec_list.insert(0, ('R0', 0, 0))
         track_spec_list.append(('MX', 0, 0))
         # draw
-        for ybot, ext_info, master, track_spec in zip(y_list, ext_list, master_list, track_spec_list):
+        for row_idx, (ybot, ext_info, master, track_spec) in \
+                enumerate(zip(y_list, ext_list, master_list, track_spec_list)):
             if master.is_empty and master.bound_box.height_unit == 0:
                 continue
 
@@ -1360,10 +1363,12 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
             if isinstance(master, AnalogSubstrate):
                 conn_layout_info = edge_layout_info.copy()
                 conn_layout_info['fg'] = fg_tot
+                sub_parity = self._sub_parity if row_idx == 0 or row_idx == len(y_list) - 1 else 0
                 conn_params = dict(
                     layout_info=conn_layout_info,
                     layout_name=master.get_layout_basename() + '_subconn',
                     is_laygo=False,
+                    options=dict(sub_parity=sub_parity),
                 )
                 conn_master = self.new_template(params=conn_params, temp_cls=AnalogSubstrateConn)
                 conn_inst = self.add_instance(conn_master, loc=inst_loc, orient=orient, unit_mode=True)
@@ -1482,6 +1487,7 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
                   min_fg_sep=0,  # type: int
                   end_mode=15,  # type: int
                   top_layer=None,  # type: Optional[int]
+                  sub_parity=0,  # type: int
                   **kwargs
                   ):
         # type: (...) -> None
@@ -1544,9 +1550,17 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
             self.size will be None, and only the height is quantized.
             If the top metal layer is above the default layer, then this AnalogBase will be a standard template, and
             both width and height will be quantized according to the block size.
+        sub_parity : str
+            the substrate orientation.  When set properly, this flag makes sure that you can overlap substrate with
+            adjacent AnalogBase cells.  Should be either 0 or 1.
         **kwargs:
             Other optional arguments.
+
+            sub_integ_htr : bool
+                True if substrate row must contain integer number of horizontal tracks.
         """
+        sub_integ_htr = kwargs.get('sub_integ_htr', False)
+
         numn = len(nw_list)
         nump = len(pw_list)
         # error checking
@@ -1567,6 +1581,8 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         self._fg_tot = fg_tot
         self._sd_yc_list = []
         self._mos_kwargs_list = []
+        self._sub_parity = sub_parity
+        self._sub_integ_htr = sub_integ_htr
 
         self._n_intvs = [IntervalSet() for _ in range(numn)]
         self._p_intvs = [IntervalSet() for _ in range(nump)]
