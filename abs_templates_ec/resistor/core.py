@@ -9,6 +9,7 @@ import abc
 from typing import Dict, Set, Tuple, Union, Any, Optional
 from itertools import chain
 
+from bag.layout.util import BBox
 from bag.layout.routing import TrackID, WireArray, Port
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.core import TechInfo
@@ -17,7 +18,6 @@ from .base import ResTech, AnalogResCore, AnalogResBoundary
 from ..analog_core.substrate import SubstrateContact
 
 
-# noinspection PyAbstractClass
 class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
     """An abstract template that draws analog resistors array and connections.
 
@@ -163,8 +163,8 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
 
         return tuple(offsets)
 
-    def get_abs_track_index(self, layer_id, cell_idx, tr_idx):
-        # type: (int, int, Union[float, int]) -> float
+    def get_abs_track_index(self, layer_id, cell_idx, tr_idx, mode=0):
+        # type: (int, int, Union[float, int], int) -> float
         """Compute absolute track index from relative track index.
 
         Parameters
@@ -175,6 +175,8 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
             the row or column index.  0 is the bottom row/left-most column.
         tr_idx : Union[int, float]
             the track index within the given cell.
+        mode : int
+            the rounding mode
 
         Returns
         -------
@@ -183,12 +185,10 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         dim_idx = 1 if self.grid.get_direction(layer_id) == 'x' else 0
         delta = self._core_offset[dim_idx] + self._core_pitch[dim_idx] * cell_idx
-
         half_pitch = self.grid.get_track_pitch(layer_id, unit_mode=True) // 2
-        htr = int(round(2 * tr_idx)) + delta // half_pitch
-        if htr % 2 == 0:
-            return htr // 2
-        return htr / 2
+        coord = delta + (int(round(2 * tr_idx)) + 1) * half_pitch
+        return self.grid.coord_to_nearest_track(layer_id, coord, half_track=True,
+                                                mode=mode, unit_mode=True)
 
     # noinspection PyUnusedLocal
     def draw_array(self,  # type: ResArrayBase
@@ -206,6 +206,7 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
                    max_blk_ext=100,  # type: int
                    options=None,  # type: Optional[Dict[str, Any]]
                    top_layer=None,  # type: Optional[int]
+                   connect_up=False,  # type: bool
                    **kwargs
                    ):
         # type: (...) -> None
@@ -229,8 +230,8 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
         ny : int
             number of resistors in a column.
         min_tracks : Optional[Tuple[int, ...]]
-            minimum number of tracks per layer in the resistor unit cell.
-            If None, Defaults to all 1's.
+            minimum number of tracks per layer in the resistor unit cell. If None, Defaults to all 1's.
+            This parameter also represents the number of layers that will be used.
         res_type : str
             the resistor type.
         em_specs : Optional[Dict[str, Any]]
@@ -244,11 +245,16 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
         options : Optional[Dict[str, Any]]
             custom options for resistor primitives.
         top_layer : Optional[int]
-            The top metal layer this block will use.  Defaults to the layer above private routing grid.
-            If the top metal layer is equal to the default layer, then this will be a primitive template;
-            self.size will be None, and only one dimension is quantized.
-            If the top metal layer is above the default layer, then this will be a standard template, and
-            both width and height will be quantized according to the block size.
+            The top metal layer this block is quantized by.  Defaults to the last layer if it is on the global
+            routing grid, or the layer above that if otherwise.
+            If the top metal layer is only one layer above the private routing grid, then this will
+            be a primitive template; self.size will be None, and only one dimension is quantized.
+            Otherwise, this will be a standard template, and both width and height will be quantized
+            according to the block size.
+        connect_up : bool
+            True if the last used layer needs to be able to connect to the layer above.
+            This options will make sure that the width of the last track is wide enough to support
+            the inter-layer via.
         **kwargs :
             optional arguments.
         """
@@ -265,20 +271,36 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
 
         if min_tracks is None:
             min_tracks = tuple(min_tracks_default)
+        min_top_layer = max(self.grid.top_private_layer + 1, self._hm_layer + len(min_tracks) - 1)
         if top_layer is None:
-            top_layer = max(self.grid.top_private_layer, self._hm_layer + len(min_tracks) - 1)
+            top_layer = min_top_layer
+        elif top_layer < min_top_layer:
+            raise ValueError('Cannot set top_layer below %d' % min_top_layer)
 
-        # find location of the lower-left resistor core
+        # get resistor primitives information
         res = self.grid.resolution
         lay_unit = self.grid.layout_unit
         l_unit = int(round(l / lay_unit / res))
         w_unit = int(round(w / lay_unit / res))
         res_info = self._tech_cls.get_res_info(self.grid, l_unit, w_unit, res_type, sub_type, threshold,
                                                min_tracks, em_specs, ext_dir, max_blk_ext=max_blk_ext,
-                                               options=options)
+                                               connect_up=connect_up, options=options)
         w_edge, h_edge = res_info['w_edge'], res_info['h_edge']
         w_core, h_core = res_info['w_core'], res_info['h_core']
-        self._core_offset = w_edge, h_edge
+
+        # compute template quantization and coordinates
+        wblk, hblk = self.grid.get_block_size(top_layer, unit_mode=True)
+        warr = w_edge * 2 + w_core * nx
+        harr = h_edge * 2 + h_core * ny
+        wtot = -(-warr // wblk) * wblk
+        htot = -(-harr // hblk) * hblk
+        dx = (wtot - warr) // 2
+        dy = (htot - harr) // 2
+        for lay_id, tr_w, tr_sp, tr_dir in grid_layers:
+            offset = dy if self.grid.get_direction(lay_id) == 'x' else dx
+            self.grid.set_track_offset(lay_id, offset, unit_mode=True)
+
+        self._core_offset = dx + w_edge, dy + h_edge
         self._core_pitch = w_core, h_core
         self._num_tracks = tuple(res_info['num_tracks'])
         self._num_corner_tracks = tuple(res_info['num_corner_tracks'])
@@ -298,7 +320,7 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
         for row in range(ny):
             for col in range(nx):
                 cur_name = 'XCORE%d' % (col + nx * row)
-                cur_loc = (w_edge + col * w_core, h_edge + row * h_core)
+                cur_loc = (dx + w_edge + col * w_core, dy + h_edge + row * h_core)
                 self.add_instance(core_master, inst_name=cur_name, loc=cur_loc, unit_mode=True)
                 if row == 0 and col == 0:
                     self._bot_port = core_master.get_port('bot')
@@ -306,34 +328,34 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # place boundaries
         # bottom-left corner
-        inst_bl = self.add_instance(corner_master, inst_name='XBL')
+        inst_bl = self.add_instance(corner_master, inst_name='XBL', loc=(dx, dy), unit_mode=True)
         # bottom edge
-        self.add_instance(tb_master, inst_name='XB', loc=(w_edge, 0), nx=nx, spx=w_core, unit_mode=True)
+        self.add_instance(tb_master, inst_name='XB', loc=(dx + w_edge, dy), nx=nx, spx=w_core, unit_mode=True)
         # bottom-right corner
-        loc = (2 * w_edge + nx * w_core, 0)
+        loc = (dx + 2 * w_edge + nx * w_core, dy)
         self.add_instance(corner_master, inst_name='XBR', loc=loc, orient='MY', unit_mode=True)
         # left edge
-        loc = (0, h_edge)
+        loc = (dx, dy + h_edge)
         well_xl = lr_master.get_well_left(unit_mode=True)
         self.add_instance(lr_master, inst_name='XL', loc=loc, ny=ny, spy=h_core, unit_mode=True)
         # right edge
-        loc = (2 * w_edge + nx * w_core, h_edge)
+        loc = (dx + 2 * w_edge + nx * w_core, dy + h_edge)
         well_xr = loc[0] - well_xl
         self._well_width = well_xr - well_xl
         self.add_instance(lr_master, inst_name='XR', loc=loc, orient='MY', ny=ny, spy=h_core, unit_mode=True)
         # top-left corner
-        loc = (0, 2 * h_edge + ny * h_core)
+        loc = (dx, dy + 2 * h_edge + ny * h_core)
         self.add_instance(corner_master, inst_name='XTL', loc=loc, orient='MX', unit_mode=True)
         # top edge
-        loc = (w_edge, 2 * h_edge + ny * h_core)
+        loc = (dx + w_edge, dy + 2 * h_edge + ny * h_core)
         self.add_instance(tb_master, inst_name='XT', loc=loc, orient='MX', nx=nx, spx=w_core, unit_mode=True)
         # top-right corner
-        loc = (2 * w_edge + nx * w_core, 2 * h_edge + ny * h_core)
+        loc = (dx + 2 * w_edge + nx * w_core, dy + 2 * h_edge + ny * h_core)
         inst_tr = self.add_instance(corner_master, inst_name='XTR', loc=loc, orient='R180', unit_mode=True)
 
         # set array box and size
         self.array_box = inst_bl.array_box.merge(inst_tr.array_box)
-        bnd_box = inst_bl.bound_box.merge(inst_tr.bound_box)
+        bnd_box = BBox(0, 0, wtot, htot, res, unit_mode=True)
         if self.grid.size_defined(top_layer):
             self.set_size_from_bound_box(top_layer, bnd_box)
         else:
