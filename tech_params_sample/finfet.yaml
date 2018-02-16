@@ -265,6 +265,8 @@ dnw_margins:
 
 # transistor DRC rules.
 mos:
+  # True if substrate tap is like planar transistors
+  substrate_planar: False
   # fin height
   fin_h: 14
   # minimum horizontal space between OD, in resolution units
@@ -405,6 +407,8 @@ mos:
   fg_outer_min:
     lch: [.inf]
     val: [3]
+  # number of fingers in outer edge block when there is a guard ring.
+  fg_outer_gr: 0
   # source/drain pitch related constants.
   # source/drain pitch is computed as val[0] + val[1] * lch_unit
   sd_pitch_constants:
