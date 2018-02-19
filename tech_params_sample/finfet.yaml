@@ -27,6 +27,8 @@ mos_layer_table:
   PODE: !!null
   # active
   OD: !!python/tuple ['Active', 'drawing']
+  # substrate active
+  OD_sub: !!python/tuple ['Active', 'drawing']
   # dummy active
   OD_dummy: !!python/tuple ['Active', 'dummy']
   # gate connection metal
