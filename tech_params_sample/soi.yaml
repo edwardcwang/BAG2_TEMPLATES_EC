@@ -8,7 +8,8 @@ resolution: 0.001
 use_flip_parity: False
 
 well_layers:
-  - !!python/tuple ['nw', 'drawing']
+  ntap: []
+  ptap: []
 
 # mapping from transistor layer name to actual layer/purpose tuple
 mos_layer_table:
