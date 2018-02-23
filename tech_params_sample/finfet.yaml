@@ -7,6 +7,9 @@ resolution: 0.001
 # True if BAG needs to handle coloring metals.
 use_flip_parity: False
 
+well_layers:
+  - !!python/tuple ['NWell', 'drawing']
+
 # mapping from transistor layer name to actual layer/purpose tuple
 mos_layer_table:
   # poly
