@@ -13,10 +13,11 @@ from bag.util.interval import IntervalSet
 from bag.layout.util import BBox
 from bag.layout.template import TemplateBase
 from bag.layout.objects import Instance
-from bag.layout.routing import TrackID
+from bag.layout.routing import TrackID, WireArray
 
 from .tech import LaygoTech
 from .base import LaygoPrimitive, LaygoSubstrate, LaygoEndRow, LaygoSpace
+from ..analog_core.placement import WireGroup, WireTree
 
 if TYPE_CHECKING:
     from bag.layout.template import TemplateDB
@@ -334,7 +335,7 @@ class LaygoBaseInfo(object):
 
         ans = self._edge_margins[0] + self._edge_widths[0] + col_idx * self._col_width
         if ds_type == 'd':
-            ans += self._col_width // 2
+            ans += self._col_width
 
         if unit_mode:
             return ans
@@ -486,7 +487,7 @@ class LaygoBaseInfo(object):
 
 class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
-        # type: (TemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
+        # type: (TemplateDB, str, Dict[str, Any], Set[str], **kwargs) -> None
 
         hidden_params = kwargs.pop('hidden_params', {}).copy()
         hidden_params['laygo_endl_infos'] = None
@@ -500,13 +501,9 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         self._tech_cls = self._laygo_info.tech_cls
 
         # initialize attributes
-        self._num_rows = 0
+        self._row_prop_list = None
+        self._row_info_list = None
         self._laygo_size = None
-        self._row_orientations = None
-        self._row_min_tracks = None
-        self._row_infos = None
-        self._row_kwargs = None
-        self._row_y = None
         self._ext_params = None
         self._used_list = None  # type: List[LaygoIntvSet]
         self._bot_end_master = None
@@ -516,6 +513,10 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         self._top_sub_extw = 0
         self._endl_infos = None
         self._endr_infos = None
+
+    @property
+    def num_rows(self):
+        return len(self._row_prop_list)
 
     @property
     def laygo_info(self):
@@ -544,67 +545,7 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
 
     @property
     def tot_height(self):
-        return self._row_y[-1][-1]
-
-    def _get_track_intervals(self, hm_layer, orient, info, ycur, ybot, via_exty, ng, ngb, nds):
-        if 'g_conn_y' in info:
-            gyb, gyt = info['g_conn_y']
-        else:
-            gyb, gyt = ybot
-
-        syb, syt = info['ds_conn_y']
-        dyb, dyt = info['gb_conn_y']
-
-        if orient == 'R0':
-            gyb += ycur
-            gyt += ycur
-            syb += ycur
-            syt += ycur
-            dyb += ycur
-            dyt += ycur
-
-            gbtr = self.grid.coord_to_nearest_track(hm_layer, gyb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            gttr = self.grid.coord_to_nearest_track(hm_layer, gyt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            g_intv = (min(gbtr, gttr + 1 - ng), gttr + 1)
-            sbtr = self.grid.coord_to_nearest_track(hm_layer, syb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            sttr = self.grid.coord_to_nearest_track(hm_layer, syt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            s_intv = (sbtr, max(sttr + 1, sbtr + nds))
-            dbtr = self.grid.coord_to_nearest_track(hm_layer, dyb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            dttr = self.grid.coord_to_nearest_track(hm_layer, dyt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            d_intv = (dbtr, max(dttr + 1, dbtr + ngb))
-            yt_vm = max(syt, dyt)
-        else:
-            h = info['arr_y'][1]
-            gyb, gyt = ycur + h - gyt, ycur + h - gyb
-            dyb, dyt = ycur + h - dyt, ycur + h - dyb
-            syb, syt = ycur + h - syt, ycur + h - syb
-
-            gbtr = self.grid.coord_to_nearest_track(hm_layer, gyb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            gttr = self.grid.coord_to_nearest_track(hm_layer, gyt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            g_intv = (gbtr, max(gttr + 1, gbtr + ng))
-            sbtr = self.grid.coord_to_nearest_track(hm_layer, syb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            sttr = self.grid.coord_to_nearest_track(hm_layer, syt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            s_intv = (min(sbtr, sttr + 1 - nds), sttr + 1)
-            dbtr = self.grid.coord_to_nearest_track(hm_layer, dyb + via_exty, half_track=True,
-                                                    mode=1, unit_mode=True)
-            dttr = self.grid.coord_to_nearest_track(hm_layer, dyt - via_exty, half_track=True,
-                                                    mode=-1, unit_mode=True)
-            d_intv = (min(dbtr, dttr + 1 - ngb), dttr + 1)
-            yt_vm = gyt
-
-        tr_top = max(g_intv[1], d_intv[1], s_intv[1]) - 1
-        yt_vm = max(yt_vm, self.grid.track_to_coord(hm_layer, tr_top, unit_mode=True) + via_exty)
-        return g_intv, s_intv, d_intv, yt_vm
+        return self._row_prop_list[-1]['row_y'][3]
 
     def _set_endlr_infos(self, num_rows):
         default_end_info = self._tech_cls.get_default_end_info()
@@ -615,32 +556,78 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         if self._endr_infos is None:
             self._endr_infos = [default_end_info] * num_rows
 
-    def set_rows_direct(self, dig_row_info):
+    @property
+    def row_layout_info(self):
+        if not self.finalized:
+            raise ValueError('Can only compute digital row info if this block is finalized.')
+
+        return dict(
+            config=self.params['config'],
+            top_layer=self._laygo_info.top_layer,
+            guard_ring_nf=self._laygo_info.guard_ring_nf,
+            draw_boundaries=self._laygo_info.draw_boundaries,
+            end_mode=self._laygo_info.end_mode,
+            row_prop_list=self._row_prop_list,
+            bot_sub_extw=self._bot_sub_extw,
+            top_sub_extw=self._top_sub_extw,
+            row_edge_infos=self._get_row_edge_infos(),
+            ext_edge_infos=self._ext_edge_infos,
+        )
+
+    def get_row_info(self, row_idx):
+        # type : (int) -> Dict[str, Any]
+        """Returns the row layout information dictionary."""
+        return self._row_info_list[row_idx]
+
+    def set_rows_direct(self, layout_info, num_col=None):
         default_end_info = self._tech_cls.get_default_end_info()
 
+        top_layer = layout_info['top_layer']
+        guard_ring_nf = layout_info['guard_ring_nf']
+        draw_boundaries = layout_info['draw_boundaries']
+        end_mode = layout_info['end_mode']
+        row_prop_list = layout_info['row_prop_list']
+
+        num_rows = len(row_prop_list)
+
         # set LaygoInfo
-        self._laygo_info.top_layer = dig_row_info['top_layer']
-        self._laygo_info.guard_ring_nf = dig_row_info['guard_ring_nf']
-        self._laygo_info.draw_boundaries = False
-        self._laygo_info.end_mode = 0
+        self._laygo_info.top_layer = top_layer
+        self._laygo_info.guard_ring_nf = guard_ring_nf
+        self._laygo_info.draw_boundaries = draw_boundaries
+        self._laygo_info.end_mode = end_mode
+        self._laygo_info.set_num_col(num_col)
 
         # set row information
-        self._row_orientations = dig_row_info['row_orientations']
-        self._num_rows = len(self._row_orientations)
-        self._row_kwargs = dig_row_info['row_kwargs']
-        self._row_min_tracks = dig_row_info['row_min_tracks']
-        self._used_list = [LaygoIntvSet(default_end_info) for _ in range(self._num_rows)]
-        self._row_infos = dig_row_info['row_infos']
-        self._ext_params = dig_row_info['ext_params']
-        self._row_y = dig_row_info['row_y']
+        self._used_list = [LaygoIntvSet(default_end_info) for _ in range(num_rows)]
 
         # set left and right end information list
-        self._set_endlr_infos(self._num_rows)
+        self._set_endlr_infos(num_rows)
+
+        # make end masters
+        if draw_boundaries:
+            bot_type = row_prop_list[0]['mos_type']
+            top_type = row_prop_list[-1]['mos_type']
+            bot_thres = row_prop_list[0]['threshold']
+            top_thres = row_prop_list[-1]['threshold']
+            self._create_end_masters(end_mode, bot_type, top_type, bot_thres, top_thres,
+                                     top_layer, 0)
+
+        self._row_prop_list = row_prop_list
+        self._ext_params, self._row_info_list = self._set_rows_from_prop(row_prop_list)
+
+        # compute laygo size if we know the number of columns
+        if num_col is not None:
+            self.set_laygo_size(num_col)
 
     def set_row_types(self, row_types, row_widths, row_orientations, row_thresholds,
-                      draw_boundaries, end_mode, num_g_tracks, num_gb_tracks, num_ds_tracks,
-                      row_min_tracks=None, top_layer=None, guard_ring_nf=0, row_kwargs=None,
-                      num_col=None, row_sub_widths=None):
+                      draw_boundaries, end_mode, num_g_tracks=None, num_gb_tracks=None,
+                      num_ds_tracks=None, row_min_tracks=None, top_layer=None,
+                      guard_ring_nf=0, row_kwargs=None, num_col=None, row_sub_widths=None,
+                      **kwargs):
+
+        tr_manager = kwargs.get('tr_manager', None)
+        wire_names = kwargs.get('wire_names', None)
+        min_height = kwargs.get('min_height', 0)
 
         # error checking
         if (row_types[0] == 'ptap' or row_types[0] == 'ntap') and row_orientations[0] != 'R0':
@@ -678,104 +665,81 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         self._laygo_info.end_mode = end_mode
         self._laygo_info.set_num_col(num_col)
 
-        # set known row information
-        self._row_orientations = row_orientations
-        self._num_rows = num_rows
-        self._row_kwargs = row_kwargs
-        self._row_min_tracks = row_min_tracks
-        self._used_list = [LaygoIntvSet(default_end_info) for _ in range(self._num_rows)]
+        # set row information
+        self._used_list = [LaygoIntvSet(default_end_info) for _ in range(num_rows)]
 
         # set left and right end information list
-        self._set_endlr_infos(self._num_rows)
+        self._set_endlr_infos(num_rows)
 
         # compute remaining row information
         tot_height_pitch = self._laygo_info.tot_height_pitch
         if draw_boundaries:
-            bot_end = (end_mode & 1) != 0
-            top_end = (end_mode & 2) != 0
-
-            if row_types[0] != 'ntap' and row_types[0] != 'ptap':
-                raise ValueError('Bottom row must be substrate.')
-            if row_types[-1] != 'ntap' and row_types[-1] != 'ptap':
-                raise ValueError('Top row must be substrate.')
-
-            # create boundary masters
-            params = dict(
-                lch=self._laygo_info.lch,
-                mos_type=row_types[0],
-                threshold=row_thresholds[0],
-                is_end=bot_end,
-                top_layer=top_layer,
-            )
-            self._bot_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
-            params = dict(
-                lch=self._laygo_info.lch,
-                mos_type=row_types[-1],
-                threshold=row_thresholds[-1],
-                is_end=top_end,
-                top_layer=top_layer,
-            )
-            self._top_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
-            ybot = self._bot_end_master.bound_box.height_unit
+            ybot, min_height = self._create_end_masters(end_mode, row_types[0], row_types[-1],
+                                                        row_thresholds[0], row_thresholds[-1],
+                                                        top_layer, min_height)
         else:
             ybot = 0
 
-        row_specs = self._get_row_specs(row_types, row_widths, row_sub_widths, row_orientations,
-                                        row_thresholds, row_min_tracks, row_kwargs, num_g_tracks,
-                                        num_gb_tracks, num_ds_tracks)
+        tmp = self._get_place_info(row_types, row_widths, row_sub_widths, row_orientations,
+                                   row_thresholds, row_min_tracks, row_kwargs, num_g_tracks,
+                                   num_gb_tracks, num_ds_tracks, tr_manager, wire_names)
+        self._row_prop_list, self._row_info_list, pinfo_list, wire_tree = tmp
 
-        result = self._place_rows(ybot, tot_height_pitch, row_specs)
-
-        # set remaining row information
-        self._row_infos, self._ext_params, self._row_y = result
+        self._ext_params = self._place_rows(ybot, tot_height_pitch, self._row_prop_list,
+                                            self._row_info_list, pinfo_list, wire_tree, min_height)
 
         # compute laygo size if we know the number of columns
         if num_col is not None:
             self.set_laygo_size(num_col)
 
-    def get_digital_row_info(self):
-        if not self.finalized:
-            raise ValueError('Can only compute digital row info if this block is finalized.')
-        if self._laygo_info.draw_boundaries is True:
-            raise ValueError('LaygoBase with boundaries cannot be used in digital row.')
+    def _create_end_masters(self, end_mode, bot_row_type, top_row_type, bot_row_thres,
+                            top_row_thres, top_layer, min_height):
+        bot_end = (end_mode & 1) != 0
+        top_end = (end_mode & 2) != 0
 
-        mos_pitch = self._laygo_info.mos_pitch
-        ans = dict(
-            config=self.params['config'],
-            top_layer=self._laygo_info.top_layer,
-            guard_ring_nf=self._laygo_info.guard_ring_nf,
-            row_orientations=self._row_orientations,
-            row_kwargs=self._row_kwargs,
-            row_min_tracks=self._row_min_tracks,
-            row_infos=self._row_infos,
-            ext_params=self._ext_params,
-            row_y=self._row_y,
-            row_height=self.bound_box.top_unit,
-            bot_extw=(self._row_y[0][1] - self._row_y[0][0]) // mos_pitch,
-            top_extw=(self._row_y[-1][3] - self._row_y[-1][2]) // mos_pitch,
-            bot_sub_extw=self._bot_sub_extw,
-            top_sub_extw=self._top_sub_extw,
-            bot_ext_info=self._row_infos[0]['ext_bot_info'],
-            top_ext_info=self._row_infos[-1]['ext_top_info'],
-            row_edge_infos=self._get_row_edge_infos(),
-            ext_edge_infos=self._ext_edge_infos,
+        if bot_row_type != 'ntap' and bot_row_type != 'ptap':
+            raise ValueError('Bottom row must be substrate.')
+        if top_row_type != 'ntap' and top_row_type != 'ptap':
+            raise ValueError('Top row must be substrate.')
+
+        # create boundary masters
+        params = dict(
+            lch=self._laygo_info.lch,
+            mos_type=bot_row_type,
+            threshold=bot_row_thres,
+            is_end=bot_end,
+            top_layer=top_layer,
         )
-        return ans
+        self._bot_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
+        params = dict(
+            lch=self._laygo_info.lch,
+            mos_type=top_row_type,
+            threshold=top_row_thres,
+            is_end=top_end,
+            top_layer=top_layer,
+        )
+        self._top_end_master = self.new_template(params=params, temp_cls=LaygoEndRow)
+        ybot = self._bot_end_master.bound_box.height_unit
 
-    def _get_row_specs(self, row_types, row_widths, row_sub_widths, row_orientations,
-                       row_thresholds, row_min_tracks, row_kwargs, num_g_tracks,
-                       num_gb_tracks, num_ds_tracks):
+        return ybot, min_height - self._top_end_master.bound_box.height_unit
+
+    def _get_place_info(self, row_types, row_widths, row_sub_widths, row_orientations,
+                        row_thresholds, row_min_tracks, row_kwargs, num_g_tracks,
+                        num_gb_tracks, num_ds_tracks, tr_manager, wire_names):
         lch = self._laygo_info.lch
         lch_unit = int(round(lch / self.grid.layout_unit / self.grid.resolution))
         mos_pitch = self._laygo_info.mos_pitch
         tcls = self._tech_cls
+        conn_layer = tcls.get_dig_conn_layer()
+        hm_layer = conn_layer + 1
+        le_sp_tr = self.grid.get_line_end_space_tracks(conn_layer, hm_layer, 1, half_space=True)
 
-        row_specs = []
+        rprop_list, rinfo_list, pinfo_list = [], [], []
+        wire_tree = WireTree(mirror=(row_types[0] == 'nch' or row_types[0] == 'pch'))
         for row_idx, (row_type, row_w, row_wsub, row_orient,
-                      row_thres, min_tracks, kwargs, ng, ngb, nds) in \
+                      row_thres, min_tracks, kwargs) in \
                 enumerate(zip(row_types, row_widths, row_sub_widths, row_orientations,
-                              row_thresholds, row_min_tracks, row_kwargs, num_g_tracks,
-                              num_gb_tracks, num_ds_tracks)):
+                              row_thresholds, row_min_tracks, row_kwargs)):
             if row_idx == 0:
                 bot_row_type = row_type
             else:
@@ -799,59 +763,130 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
             else:
                 raise ValueError('Unknown row type: %s' % row_type)
 
+            # get row pitch
             row_pitch = min_row_height = mos_pitch
-            for layer, num_tr in min_tracks:
+            for layer, num_tr in min_tracks.items():
                 tr_pitch = self.grid.get_track_pitch(layer, unit_mode=True)
                 min_row_height = max(min_row_height, num_tr * tr_pitch)
-                row_pitch = lcm([row_pitch, tr_pitch])
+                row_pitch = lcm([row_pitch, tr_pitch // 2])
 
-            row_specs.append((row_type, row_orient, row_info, min_row_height,
-                              row_pitch, (ng, ngb, nds), kwargs))
+            # get bottom/top Y coordinates
+            blk_h = row_info['arr_y'][1]
+            g_conn_y = row_info.get('g_conn_y', (0, 0))
+            gb_conn_y = row_info['gb_conn_y']
+            ds_conn_y = row_info['ds_conn_y']
+            bot_conn_y, top_conn_y, bot_wires, top_wires = [], [], [], []
+            if row_orient == 'R0':
+                bext_info = row_info['ext_bot_info']
+                text_info = row_info['ext_top_info']
+                if wire_names is None:
+                    ng = num_g_tracks[row_idx]
+                    ngb = num_gb_tracks[row_idx]
+                    nds = num_ds_tracks[row_idx]
+                    if ng >= 1:
+                        bot_conn_y.append(g_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'g', ng, space=le_sp_tr))
+                    if ngb >= 1:
+                        top_conn_y.append(gb_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'gb', ngb, space=le_sp_tr))
+                    if nds >= 1:
+                        top_conn_y.append(ds_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'ds', nds, space=le_sp_tr))
+                else:
+                    wnames = wire_names[row_idx]
+                    if wnames['g']:
+                        bot_conn_y.append(g_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'g', tr_manager=tr_manager,
+                                                   name_list=wnames['g']))
+                    if wnames['gb']:
+                        top_conn_y.append(gb_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'gb', tr_manager=tr_manager,
+                                                   name_list=wnames['gb']))
+                    if wnames['ds']:
+                        top_conn_y.append(ds_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'ds', tr_manager=tr_manager,
+                                                   name_list=wnames['ds']))
+            else:
+                bext_info = row_info['ext_top_info']
+                text_info = row_info['ext_bot_info']
+                g_conn_y = blk_h - g_conn_y[1], blk_h - g_conn_y[0]
+                gb_conn_y = blk_h - gb_conn_y[1], blk_h - gb_conn_y[0]
+                ds_conn_y = blk_h - ds_conn_y[1], blk_h - ds_conn_y[0]
 
-        return row_specs
+                if wire_names is None:
+                    ng = num_g_tracks[row_idx]
+                    ngb = num_gb_tracks[row_idx]
+                    nds = num_ds_tracks[row_idx]
+                    if ng >= 1:
+                        top_conn_y.append(g_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'g', ng, space=le_sp_tr))
+                    if ngb >= 1:
+                        bot_conn_y.append(gb_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'gb', ngb, space=le_sp_tr))
+                    if nds >= 1:
+                        bot_conn_y.append(ds_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'ds', nds, space=le_sp_tr))
+                else:
+                    wnames = wire_names[row_idx]
+                    if wnames['g']:
+                        top_conn_y.append(g_conn_y)
+                        top_wires.append(WireGroup(hm_layer, 'g', tr_manager=tr_manager,
+                                                   name_list=wnames['g']))
+                    if wnames['gb']:
+                        bot_conn_y.append(gb_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'gb', tr_manager=tr_manager,
+                                                   name_list=wnames['gb']))
+                    if wnames['ds']:
+                        bot_conn_y.append(ds_conn_y)
+                        bot_wires.append(WireGroup(hm_layer, 'ds', tr_manager=tr_manager,
+                                                   name_list=wnames['ds']))
 
-    def _place_with_num_tracks(self, row_info, row_orient, ytop_prev, yt_vm_prev, hm_layer,
-                               hm_width, via_exty, vm_sple, mos_pitch, ng, ngb, nds, **kwargs):
-        ignore_conn_sple_g = kwargs.get('place_ignore_conn_sple_g', False)
-        ignore_conn_sple_ds = kwargs.get('place_ignore_conn_sple_ds', False)
+            if bot_wires:
+                wire_tree.add_wires(bot_wires, (row_idx, 0))
+            if top_wires:
+                wire_tree.add_wires(top_wires, (row_idx, 1))
 
-        # get bottom port Y intervals and number of horizontal tracks needed
-        if row_orient == 'R0':
-            # gate tracks on bottom
-            num_tr1 = num_tr2 = ng
-            conn_yb1, conn_yt1 = row_info.get('g_conn_y', (0, 0))
-            conn_yb2, conn_yt2 = conn_yb1, conn_yt1
-            ignore_sple = ignore_conn_sple_g
-        else:
-            # drain/source tracks on bottom
-            num_tr1, num_tr2 = ngb, nds
-            conn_yb1, conn_yt1 = row_info['gb_conn_y']
-            conn_yb2, conn_yt2 = row_info['ds_conn_y']
-            blk_height = row_info['arr_y'][1]
-            conn_yb1, conn_yt1 = blk_height - conn_yt1, blk_height - conn_yb1
-            conn_yb2, conn_yt2 = blk_height - conn_yt2, blk_height - conn_yb2
-            ignore_sple = ignore_conn_sple_ds
+            rprop_list.append(dict(
+                mos_type=row_type,
+                orient=row_orient,
+                w=row_w,
+                threshold=row_thres,
+                kwargs=kwargs,
+            ))
+            rinfo_list.append(row_info)
+            pinfo_list.append((bot_conn_y, top_conn_y, blk_h, bext_info, text_info,
+                               min_row_height, row_pitch))
 
-        # find minimum Y coordinate of this row
+        return rprop_list, rinfo_list, pinfo_list, wire_tree
+
+    def _place_with_num_tracks(self, tr_next, hm_layer, bot_conn_y, bot_wires, ytop_prev,
+                               conn_delta, mos_pitch, tr_manager, last_track):
+
+        # determine block placement
         ycur = ytop_prev
-        # get center Y coordinate of bottom track that is DRC clean from previous row
-        y_btr = ytop_prev + hm_width // 2
-        if not ignore_sple:
-            y_btr = max(yt_vm_prev + vm_sple + via_exty, y_btr)
-        tr0 = self.grid.coord_to_nearest_track(hm_layer, y_btr, half_track=True, mode=1,
-                                               unit_mode=True)
-        for ntr, cyb, cyt in ((num_tr1, conn_yb1, conn_yt1),
-                              (num_tr2, conn_yb2, conn_yt2)):
-            # ignore number-of-tracks constraints if we have less than 1 track.
-            if ntr >= 1:
-                # get center Y coordinate of top track
-                y_ttr = self.grid.track_to_coord(hm_layer, tr0 + ntr - 1, unit_mode=True)
-                # make sure we can connect top top horizontal track
-                ycur = max(ycur, y_ttr - cyt + via_exty)
+        tr_last_info = []
+        for btr_info, (yb, yt) in zip(bot_wires, bot_conn_y):
+            if isinstance(btr_info, int) or isinstance(btr_info, float):
+                bot_ntr = btr_info
+                if bot_ntr >= 1:
+                    tr_last_info.append(tr_next + bot_ntr - 1)
+            else:
+                if btr_info:
+                    bot_ntr, bot_loc = tr_manager.place_wires(hm_layer, btr_info, start_idx=tr_next)
+                    tr_last_info.append((bot_loc[-1], btr_info[-1]))
+                else:
+                    bot_ntr = 0
 
-        # step C: round Y coordinate to mos_pitch
+            if bot_ntr >= 1:
+                y_ttr = self.grid.track_to_coord(hm_layer, tr_next + bot_ntr - 1, unit_mode=True)
+                ycur = max(ycur, y_ttr - yt + conn_delta)
+
+        if not tr_last_info:
+            tr_last_info = last_track
+
+        # round Y coordinate to mos_pitch
         ycur = -(-ycur // mos_pitch) * mos_pitch
-        return ycur
+        return ycur, tr_last_info
 
     def _place_mirror_or_sub(self, row_type, row_thres, lch_unit, mos_pitch, ydelta, ext_info):
         # find substrate parameters
@@ -902,55 +937,52 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
 
         return ext_w, sub_extw
 
-    def _place_rows(self, ybot, tot_height_pitch, row_specs):
+    def _place_rows(self, ybot, tot_height_pitch, rprop_list, rinfo_list, pinfo_list,
+                    wire_tree, min_htot):
         lch_unit = self._laygo_info.lch_unit
 
-        ext_params_list = []
-        row_infos = []
-        row_y = []
-        conn_layer = self._tech_cls.get_dig_conn_layer()
-        hm_layer = conn_layer + 1
-        via_ency = self.grid.get_via_extensions(conn_layer, 1, 1, unit_mode=True)[0]
-        hm_width, hm_space = self.grid.get_track_info(hm_layer, unit_mode=True)
-        vm_sple = self.grid.get_line_end_space(conn_layer, 1, unit_mode=True)
         mos_pitch = self._tech_cls.get_mos_pitch(unit_mode=True)
-        via_exty = hm_width // 2 + via_ency
+        vm_layer = self._tech_cls.get_dig_conn_layer()
+        hm_layer = vm_layer + 1
+
+        num_rows = len(rprop_list)
+        ext_params_list = []
         prev_ext_info = None
         prev_ext_h = 0
         ytop_prev = ybot
-        yt_vm_prev = ytop_prev - vm_sple // 2
-        for idx, (row_type, row_orient, row_info, min_row_height,
-                  row_pitch, (ng, ngb, nds), kwargs) in enumerate(row_specs):
-            row_thres = row_info['threshold']
+        # first pass: determine Y coordinates of each row.
+        for idx, (rprop, pinfo) in enumerate(zip(rprop_list, pinfo_list)):
+            row_type = rprop['mos_type']
+            row_thres = rprop['threshold']
 
-            # get information dictionary
+            (bot_conn_y, top_conn_y, blk_height, ext_bot_info, ext_top_info,
+             min_row_height, row_pitch) = pinfo
+
             is_sub = (row_type == 'ptap' or row_type == 'ntap')
 
-            # get extension information
-            if row_orient == 'R0':
-                ext_bot_info = row_info['ext_bot_info']
-                ext_top_info = row_info['ext_top_info']
-            else:
-                ext_top_info = row_info['ext_bot_info']
-                ext_bot_info = row_info['ext_top_info']
-
-            blk_height = row_info['arr_y'][1]
-            # step 1: find Y coordinate
+            # find Y coordinate of current block from track/mirror placement constraints
             if idx == 0 and is_sub:
-                # bottom substrate has orientation R0, just abut to bottom.
+                # bottom substrate has orientation R0 and no gate tracks, just abut to bottom.
                 ycur = ytop_prev
                 cur_bot_ext_h = 0
             else:
-                # step A: find bottom connection Y coordinate and number of tracks
-                ng_cur = 0 if is_sub else ng
-                ycur = self._place_with_num_tracks(row_info, row_orient, ytop_prev, yt_vm_prev,
-                                                   hm_layer, hm_width, via_exty, vm_sple,
-                                                   mos_pitch, ng_cur, ngb, nds, **kwargs)
-                cur_bot_ext_h = (ycur - ytop_prev) // mos_pitch
-                # step D: make sure extension constraints is met
+                ycur = ytop_prev
+                wire_groups = wire_tree.get_wire_groups((idx, 0))
+                if wire_groups is not None:
+                    # find Y coordinate that allows us to connect to top bottom track
+                    for (_, yt), wg in zip(bot_conn_y, wire_groups):
+                        _, tr_idx, tr_w = wg.last_track
+                        via_ext = self.grid.get_via_extensions(vm_layer, 1, tr_w, unit_mode=True)[0]
+                        y_ttr = self.grid.get_wire_bounds(hm_layer, tr_idx, width=tr_w,
+                                                          unit_mode=True)[1]
+                        ycur = max(ycur, y_ttr + via_ext - yt)
+                    ycur = -(-ycur // mos_pitch) * mos_pitch
+
+                # make sure extension constraints is met
                 if idx != 0:
                     valid_widths = self._tech_cls.get_valid_extension_widths(lch_unit, ext_bot_info,
                                                                              prev_ext_info)
+                    cur_bot_ext_h = (ycur - ytop_prev) // mos_pitch
                     ext_h = prev_ext_h + cur_bot_ext_h
                     if ext_h < valid_widths[-1] and ext_h not in valid_widths:
                         # make sure extension height is valid
@@ -964,114 +996,206 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
 
                 ycur = ytop_prev + cur_bot_ext_h * mos_pitch
 
-            # at this point, ycur and cur_ext_h are determined
-            if idx == self._num_rows - 1 and is_sub:
-                # we need to quantize row height, total height, and substrate just abut to top edge.
-                ytop = ycur + blk_height
-                ytop = max(ytop, ytop_prev + min_row_height)
-                ytop = -(-ytop // row_pitch) * row_pitch
+            # move top tracks and find top coordinate
+            ytop = max(ycur + blk_height, ytop_prev + min_row_height)
+            wire_groups = wire_tree.get_wire_groups((idx, 1))
+            if wire_groups is not None:
+                # move the top tracks so we can connect to them
+                for (yb, _), wg in zip(top_conn_y, wire_groups):
+                    _, tr_idx, tr_w = wg.first_track
+                    via_ext = self.grid.get_via_extensions(vm_layer, 1, tr_w, unit_mode=True)[0]
+                    idx_targ = self.grid.find_next_track(hm_layer, ycur + yb + via_ext,
+                                                         tr_width=tr_w, half_track=True,
+                                                         mode=1, unit_mode=True)
+                    if tr_idx < idx_targ:
+                        wg.move_by(idx_targ - tr_idx, propagate=True)
+                    # update ytop
+                    _, last_idx, last_w = wg.last_track
+                    ytop = max(ytop, self.grid.get_wire_bounds(hm_layer, last_idx,
+                                                               width=last_w, unit_mode=True)[1])
+
+            ytop = -(-ytop // row_pitch) * row_pitch
+            if idx == num_rows - 1:
+                # this is the last row, quantize total height
+                ytop = max(ytop, min_htot)
                 tot_height = -(-(ytop - ybot) // tot_height_pitch) * tot_height_pitch
                 ytop = ybot + tot_height
-                ycur = ytop - blk_height
-                cur_bot_ext_h = (ycur - ytop_prev) // mos_pitch
-                cur_top_ext_h = 0
-            else:
-                if idx != self._num_rows - 1:
-                    if row_orient == 'MX':
-                        # gate tracks on top
-                        num_tr1 = num_tr2 = 0 if is_sub else ng
-                        conn_yb1, conn_yt1 = row_info['g_conn_y']
-                        conn_yb1, conn_yt1 = blk_height - conn_yt1, blk_height - conn_yb1
-                        conn_yb2, conn_yt2 = conn_yb1, conn_yt1
-                    else:
-                        # drain/source tracks on top
-                        num_tr1, num_tr2 = ngb, nds
-                        conn_yb1, conn_yt1 = row_info['gb_conn_y']
-                        conn_yb2, conn_yt2 = row_info['ds_conn_y']
-
-                    # compute top extension from constraints
-                    ytop = max(ycur + blk_height, ytop_prev + min_row_height)
-                    for ntr, cyb, cyt in ((num_tr1, conn_yb1, conn_yt1),
-                                          (num_tr2, conn_yb2, conn_yt2)):
-                        if ntr > 0:
-                            ybtr = ycur + cyb + via_exty
-                            tr0 = self.grid.coord_to_nearest_track(hm_layer, ybtr, half_track=True,
-                                                                   mode=1, unit_mode=True)
-                            yttr = ycur + cyt - via_exty
-                            tr1 = self.grid.coord_to_nearest_track(hm_layer, yttr, half_track=True,
-                                                                   mode=-1, unit_mode=True)
-                            tr1 = max(tr1, tr0 + ntr - 1)
-                            ytr1 = self.grid.track_to_coord(hm_layer, tr1, unit_mode=True)
-                            ytop = max(ytop, ytr1 + hm_width // 2)
-
-                    ytop = -(-ytop // row_pitch) * row_pitch
-                    cur_top_ext_h = (ytop - ycur - blk_height) // mos_pitch
-                else:
-                    # nmos/pmos at top row.
-                    # step 1: compute distance of row from top edge
-                    test_orient = 'R0' if row_orient == 'MX' else 'MX'
-                    test_y0 = 0  # use 0 because top edge is LCM of horizontal track pitches.
-                    ydelta = self._place_with_num_tracks(row_info, test_orient, test_y0,
-                                                         -vm_sple // 2, hm_layer,
-                                                         hm_width, via_exty, vm_sple, mos_pitch,
-                                                         ng, ngb, nds, **kwargs)
-                    # step 2: make sure ydelta can satisfy extension constraints.
-                    tmp = self._place_mirror_or_sub(row_type, row_thres, lch_unit, mos_pitch,
-                                                    ydelta, ext_top_info)
-                    cur_top_ext_h, self._top_sub_extw = tmp
-                    ydelta = cur_top_ext_h * mos_pitch
-                    # step 3: compute row height given ycur and ydelta, round to row_pitch
-                    ytop = max(ycur + blk_height + ydelta, ytop_prev + min_row_height)
-                    ytop = -(-ytop // row_pitch) * row_pitch
-                    # step 4: round to total height pitch
-                    tot_height = -(-(ytop - ybot) // tot_height_pitch) * tot_height_pitch
-                    ytop = ybot + tot_height
-                    # step 4: update ycur
-                    ycur = ytop - ydelta - blk_height
+                if is_sub:
+                    # last row is substrate, abut to top edge
+                    ycur = ytop - blk_height
                     cur_bot_ext_h = (ycur - ytop_prev) // mos_pitch
+                    cur_top_ext_h = 0
+                else:
+                    # last row is transistor, make sure mirror extension constraint passes
+                    pass_mirror = False
+                    while not pass_mirror:
+                        tmp = self._place_mirror_or_sub(row_type, row_thres, lch_unit, mos_pitch,
+                                                        ytop - ycur - blk_height, ext_top_info)
+                        cur_top_ext_h, self._top_sub_extw = tmp
+                        ytest = ycur + blk_height + cur_top_ext_h * mos_pitch
+                        if ytest != ytop:
+                            ytop = -(-ytest // row_pitch) * row_pitch
+                            # step 4: round to total height pitch
+                            tot_height = -(-(ytop - ybot) // tot_height_pitch) * tot_height_pitch
+                            ytop = ybot + tot_height
+                        else:
+                            pass_mirror = True
 
-            # recompute gate and drain/source track indices
-            tmp = self._get_track_intervals(hm_layer, row_orient, row_info, ycur, ytop_prev,
-                                            via_exty, ng, ngb, nds)
-            g_intv, ds_intv, gb_intv, yt_vm_cur = tmp
+                    cur_top_ext_h = (ytop - ycur - blk_height) // mos_pitch
+            else:
+                # this is not the last row, move the next tracks outside of this row
+                cur_top_ext_h = (ytop - ycur - blk_height) // mos_pitch
+                wire_groups = wire_tree.get_wire_groups((idx + 1, 0))
+                if wire_groups is not None:
+                    for wg in wire_groups:
+                        _, tr_idx, tr_w = wg.first_track
+                        idx_targ = self.grid.find_next_track(hm_layer, ytop,
+                                                             tr_width=tr_w,
+                                                             half_track=True,
+                                                             mode=1, unit_mode=True)
+                        if tr_idx < idx_targ:
+                            wg.move_by(idx_targ - tr_idx, propagate=True)
 
             # record information
-            row_info['g_intv'] = g_intv
-            row_info['ds_intv'] = ds_intv
-            row_info['gb_intv'] = gb_intv
-            if prev_ext_info is None:
-                ext_y = 0
-            else:
-                ext_y = row_y[-1][2]
-            row_y.append((ytop_prev, ycur, ycur + blk_height, ytop))
-            row_infos.append(row_info)
+            rprop['row_y'] = ytop_prev, ycur, ycur + blk_height, ytop
+            ext_y = ybot if idx == 0 else rprop_list[idx - 1]['row_y'][2]
             ext_params_list.append((prev_ext_h + cur_bot_ext_h, ext_y))
 
             # update previous row information
             ytop_prev = ytop
-            yt_vm_prev = yt_vm_cur
             prev_ext_info = ext_top_info
             prev_ext_h = cur_top_ext_h
 
-        return row_infos, ext_params_list, row_y
+        # second pass: move tracks to minimize resistance, then record track intervals.
+        for idx in range(len(pinfo_list) - 1, -1, -1):
+            bot_conn_y = pinfo_list[idx][0]
+            rinfo = rinfo_list[idx]
+            ycur = rprop_list[idx]['row_y'][1]
+
+            bot_wire_groups = wire_tree.get_wire_groups((idx, 0))
+            top_wire_groups = wire_tree.get_wire_groups((idx, 1))
+            if bot_wire_groups is not None:
+                for (_, yt), wg in zip(bot_conn_y, bot_wire_groups):
+                    _, tr_idx, tr_w = wg.last_track
+                    via_ext = self.grid.get_via_extensions(vm_layer, 1, tr_w, unit_mode=True)[0]
+                    idx_max = self.grid.find_next_track(hm_layer, ycur + yt - via_ext,
+                                                        tr_width=tr_w, half_track=True,
+                                                        mode=-1, unit_mode=True)
+                    if idx_max > tr_idx:
+                        wg.move_up(idx_max - tr_idx)
+
+                    key = '%s_intv' % wg.type
+                    rinfo[key] = wg.interval
+
+            if top_wire_groups is not None:
+                for wg in top_wire_groups:
+                    key = '%s_intv' % wg.type
+                    rinfo[key] = wg.interval
+
+            for key in ('g_intv', 'gb_intv', 'ds_intv'):
+                if key not in rinfo:
+                    rinfo[key] = (0, 0)
+
+        return ext_params_list
+
+    def _set_rows_from_prop(self, rprop_list):
+        lch_unit = self._laygo_info.lch_unit
+
+        tcls = self._tech_cls
+        mos_pitch = tcls.get_mos_pitch(unit_mode=True)
+        vm_layer = tcls.get_dig_conn_layer()
+        hm_layer = vm_layer + 1
+        via_ext = self.grid.get_via_extensions(vm_layer, 1, 1, unit_mode=True)[0]
+
+        ext_params_list = []
+        rinfo_list = []
+        # first pass: determine Y coordinates of each row.
+        for idx, rprop in enumerate(rprop_list):
+            yb_row, yb_cur, yt_cur, yt_row = rprop['row_y']
+            row_orient = rprop['orient']
+            row_type = rprop['mos_type']
+            row_w = rprop['w']
+            row_thres = rprop['threshold']
+            kwargs = rprop.get('kwargs', None)
+            if kwargs is None:
+                kwargs = {}
+
+            if row_type == 'nch' or row_type == 'pch':
+                row_info = tcls.get_laygo_mos_row_info(lch_unit, row_w, row_w, row_type,
+                                                       row_thres, '', '', **kwargs)
+            elif row_type == 'ptap' or row_type == 'ntap':
+                row_info = tcls.get_laygo_sub_row_info(lch_unit, row_w, row_type,
+                                                       row_thres, **kwargs)
+            else:
+                raise ValueError('Unknown row type: %s' % row_type)
+
+            # record information
+            ext_y = yb_row if idx == 0 else rprop_list[idx - 1]['row_y'][2]
+            rinfo_list.append(row_info)
+            ext_params_list.append(((yb_cur - ext_y) // mos_pitch, ext_y))
+
+            # record track intervals
+            btr = self.grid.find_next_track(hm_layer, yb_row, half_track=True,
+                                            mode=1, unit_mode=True)
+            ttr = self.grid.find_next_track(hm_layer, yt_row, half_track=True,
+                                            mode=-1, unit_mode=True)
+            g_conn_y = row_info.get('g_conn_y', (0, 0))
+            gb_conn_y = row_info['gb_conn_y']
+            ds_conn_y = row_info['ds_conn_y']
+            if row_orient == 'R0':
+                yt_g = yb_cur + g_conn_y[1]
+                yb_gb = yb_cur + gb_conn_y[0]
+                yb_ds = yb_cur + ds_conn_y[0]
+                gtr = self.grid.find_next_track(hm_layer, yt_g - via_ext, half_track=True,
+                                                mode=-1, unit_mode=True)
+                gbtr = self.grid.find_next_track(hm_layer, yb_gb + via_ext, half_track=True,
+                                                 mode=1, unit_mode=True)
+                dstr = self.grid.find_next_track(hm_layer, yb_ds + via_ext, half_track=True,
+                                                 mode=1, unit_mode=True)
+                row_info['g_intv'] = (btr, max(btr, gtr + 1))
+                row_info['gb_intv'] = (gbtr, max(ttr + 1, gbtr))
+                row_info['ds_intv'] = (dstr, max(ttr + 1, dstr))
+            else:
+                yb_g = yt_cur - g_conn_y[1]
+                yt_gb = yt_cur - gb_conn_y[0]
+                yt_ds = yt_cur - ds_conn_y[0]
+                gtr = self.grid.find_next_track(hm_layer, yb_g + via_ext, half_track=True,
+                                                mode=1, unit_mode=True)
+                gbtr = self.grid.find_next_track(hm_layer, yt_gb - via_ext, half_track=True,
+                                                 mode=-1, unit_mode=True)
+                dstr = self.grid.find_next_track(hm_layer, yt_ds - via_ext, half_track=True,
+                                                 mode=-1, unit_mode=True)
+                row_info['g_intv'] = (gtr, max(ttr + 1, gtr))
+                row_info['gb_intv'] = (btr, max(btr, gbtr + 1))
+                row_info['ds_intv'] = (btr, max(btr, dstr + 1))
+
+        return ext_params_list, rinfo_list
 
     def get_num_tracks(self, row_idx, tr_type):
-        row_info = self._row_infos[row_idx]
+        row_info = self._row_info_list[row_idx]
         intv = row_info['%s_intv' % tr_type]
         return intv[1] - intv[0]
 
     def get_track_index(self, row_idx, tr_type, tr_idx):
-        row_info = self._row_infos[row_idx]
-        orient = self._row_orientations[row_idx]
+        row_info = self._row_info_list[row_idx]
+        orient = self._row_prop_list[row_idx]['orient']
         intv = row_info['%s_intv' % tr_type]
         ntr = intv[1] - intv[0]
         if tr_idx >= ntr:
-            raise ValueError('tr_idx = %d >= %d' % (tr_idx, ntr))
+            raise IndexError('tr_idx = %d >= %d' % (tr_idx, ntr))
+        if tr_idx < 0:
+            tr_idx += ntr
+        if tr_idx < 0:
+            raise IndexError('index out of range.')
 
         if orient == 'R0':
             return intv[0] + tr_idx
         else:
             return intv[1] - 1 - tr_idx
+
+    def get_track_interval(self, row_idx, tr_type):
+        row_info = self._row_info_list[row_idx]
+        return row_info['%s_intv' % tr_type]
 
     def make_track_id(self, row_idx, tr_type, tr_idx, width=1, num=1, pitch=0.0):
         tid = self.get_track_index(row_idx, tr_type, tr_idx)
@@ -1082,7 +1206,7 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         return self._get_ext_info_row(0, 0)
 
     def get_ext_top_info(self):
-        return self._get_ext_info_row(self._num_rows - 1, 1)
+        return self._get_ext_info_row(self.num_rows - 1, 1)
 
     def _get_ext_info_row(self, row_idx, ext_idx):
         intv = self._used_list[row_idx]
@@ -1123,37 +1247,149 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
                         num_col = max(num_col, intv.get_end())
 
             self._laygo_info.set_num_col(num_col)
-            self._laygo_size = num_col, self._num_rows
+            self._laygo_size = num_col, self.num_rows
 
             top_layer = self._laygo_info.top_layer
             draw_boundaries = self._laygo_info.draw_boundaries
 
             width = self._laygo_info.tot_width
-            height = self._row_y[-1][-1]
+            height = self.tot_height
             if draw_boundaries:
                 height += self._top_end_master.bound_box.height_unit
             bound_box = BBox(0, 0, width, height, self.grid.resolution, unit_mode=True)
             self.set_size_from_bound_box(top_layer, bound_box)
             self.add_cell_boundary(bound_box)
 
+    def add_laygo_mos(self, row_idx, col_idx, seg, gate_loc='d',
+                      stack=False, is_sub=False, flip=False, **kwargs):
+        # type: (int, int, int, str, bool, bool, bool, **kwargs) -> Dict[str, WireArray]
+        """Adds a laygo transistor at the given location.
+
+        Parameters
+        ----------
+        row_idx : int
+            the row index.
+        col_idx : int
+            the left-most column index.
+        seg : int
+            number of segments.  For stacked transistors,
+            number of fingers = 2 * number of segments.
+        gate_loc : str
+            gate alignment location.  Either 'd' or 's'.
+        stack : bool
+            True to draw a 2-stack transistor.
+        is_sub : bool
+            True to draw a substrate contact.
+        flip : bool
+            True to flip source/drain/gate left and right.  Useful if this transistor should
+            be a mirror image.
+        **kwargs :
+            optional Laygo primitive arguments.
+
+        Returns
+        -------
+        ports : Dict[str, WireArray]
+            a dictionary from port names to port WireArray objects.
+        """
+        row_info = self._row_info_list[row_idx]
+        row_type = row_info['row_type']
+
+        if gate_loc != 'd' and gate_loc != 's':
+            raise ValueError("gate_loc must be 'd' or 's'.")
+
+        ports = {}
+        if is_sub or row_type == 'ntap' or row_type == 'ptap':
+            if seg % 2 == 1:
+                raise ValueError('Cannot draw odd segments of substrate connection.')
+            nx = seg // 2
+            inst = self.add_laygo_primitive('sub', loc=(col_idx, row_idx), nx=nx, spx=2, **kwargs)
+            port_name = 'VDD' if row_type == 'ntap' or row_type == 'pch' else 'VSS'
+            for name in (port_name, port_name + '_s', port_name + '_d'):
+                ports[name] = WireArray.list_to_warr(inst.get_all_port_pins(name))
+        else:
+            if stack:
+                blk_type = 'stack2' + gate_loc
+                num2 = seg
+                num1 = False
+            else:
+                blk_type = 'fg2' + gate_loc
+                num2 = seg // 2
+                num1 = (seg % 2 == 1)
+
+            ne = (num2 + 1) // 2
+            no = num2 - ne
+            inst = [self.add_laygo_primitive(blk_type, loc=(col_idx, row_idx), nx=ne, spx=4,
+                                             **kwargs)]
+            if no > 0:
+                inst.append(self.add_laygo_primitive(blk_type, loc=(col_idx + 2, row_idx),
+                                                     flip=True, nx=no, spx=4, **kwargs))
+            if num1:
+                col = col_idx + num2 * 2
+                blk_type = 'fg1' + gate_loc
+                inst1 = self.add_laygo_primitive(blk_type, loc=(col, row_idx), **kwargs)
+            else:
+                inst1 = None
+
+            if gate_loc == 's':
+                names = ['s', 'd', 'g', 'g0', 'g1']
+            else:
+                names = ['s', 'd', 'g']
+
+            for name in names:
+                if flip:
+                    if name == 'd':
+                        cur_name = 's'
+                    elif name == 's':
+                        cur_name = 'd'
+                    elif name == 'g0':
+                        cur_name = 'g1'
+                    elif name == 'g1':
+                        cur_name = 'g0'
+                    else:
+                        cur_name = name
+                else:
+                    cur_name = name
+
+                pins = inst[0].get_all_port_pins(cur_name)
+                if len(inst) > 1:
+                    pins.extend(inst[1].get_all_port_pins(cur_name))
+                if inst1 is not None:
+                    if cur_name == 'g0' or cur_name == 'g1':
+                        if num2 % 2 == 0:
+                            name1 = cur_name
+                        else:
+                            name1 = 'g1' if cur_name == 'g0' else 'g0'
+                        pins.extend(inst1.get_all_port_pins(name1))
+                    else:
+                        pins.extend(inst1.get_all_port_pins(cur_name))
+
+                ports[name] = WireArray.list_to_warr(pins)
+
+        return ports
+
     def add_laygo_primitive(self, blk_type, loc=(0, 0), flip=False, nx=1, spx=0, **kwargs):
         # type: (str, Tuple[int, int], bool, int, int, **kwargs) -> Instance
 
         col_idx, row_idx = loc
-        if row_idx < 0 or row_idx >= self._num_rows:
+        if row_idx < 0 or row_idx >= self.num_rows:
             raise ValueError('Cannot add primitive at row %d' % row_idx)
 
-        row_info = self._row_infos[loc[1]]
+        row_info = self._row_info_list[row_idx]
         row_type = row_info['row_type']
         wblk = kwargs.pop('w', row_info['w_max'])
 
         col_width = self._laygo_info.col_width
 
-        row_orient = self._row_orientations[row_idx]
+        rprop = self._row_prop_list[row_idx]
+        row_orient = rprop['orient']
+        _, ycur, ytop, _ = rprop['row_y']
+        options = rprop.get('kwargs', None)
+
+        if options is not None:
+            options = options.copy()
+            options.update(kwargs)
 
         # make master
-        options = self._row_kwargs[row_idx].copy()
-        options.update(kwargs)
         params = dict(
             row_info=row_info,
             options=options,
@@ -1185,12 +1421,11 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         if flip:
             x0 += master.bound_box.width_unit
 
-        _, ycur, ytop, _ = self._row_y[row_idx]
         if row_orient == 'R0':
-            y0 = self._row_y[row_idx][1]
+            y0 = ycur
             orient = 'MY' if flip else 'R0'
         else:
-            y0 = self._row_y[row_idx][2]
+            y0 = ytop
             orient = 'R180' if flip else 'MX'
 
         # convert horizontal pitch to resolution units
@@ -1217,7 +1452,7 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         self._ext_edge_infos = []
         laygo_info = self._laygo_info
         tech_cls = laygo_info.tech_cls
-        for bot_ridx in range(0, self._num_rows - 1):
+        for bot_ridx in range(0, self.num_rows - 1):
             w, yext = self._ext_params[bot_ridx + 1]
             bot_ext_list = self._get_ext_info_row(bot_ridx, 1)
             top_ext_list = self._get_ext_info_row(bot_ridx + 1, 0)
@@ -1229,10 +1464,12 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
 
     def add_laygo_space(self, adj_end_info, num_blk=1, loc=(0, 0), **kwargs):
         col_idx, row_idx = loc
-        row_info = self._row_infos[row_idx]
-        row_y = self._row_y[row_idx]
-        row_orient = self._row_orientations[row_idx]
+        row_info = self._row_info_list[row_idx]
+        rprop = self._row_prop_list[row_idx]
         intv = self._used_list[row_idx]
+
+        row_y = rprop['row_y']
+        row_orient = rprop['orient']
 
         params = dict(
             row_info=row_info,
@@ -1266,12 +1503,10 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
         guard_ring_nf = self._laygo_info.guard_ring_nf
 
         row_edge_infos = []
-        for ridx, (orient, ytuple, rinfo) in enumerate(zip(self._row_orientations,
-                                                           self._row_y, self._row_infos)):
-            if orient == 'R0':
-                y = ytuple[1]
-            else:
-                y = ytuple[2]
+        for ridx, (rinfo, rprop) in enumerate(zip(self._row_info_list, self._row_prop_list)):
+            orient = rprop['orient']
+            row_y = rprop['row_y']
+            y = row_y[1] if orient == 'R0' else row_y[2]
 
             row_edge_params = dict(
                 top_layer=top_layer,
