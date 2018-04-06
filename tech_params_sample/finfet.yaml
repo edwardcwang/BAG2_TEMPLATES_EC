@@ -354,6 +354,8 @@ mos:
   mp_md_sp: 13
   # space between MP and CPO
   mp_cpo_sp: 19
+  # True to draw CPO
+  has_cpo: True
   # normal CPO height
   cpo_h:
     lch: [.inf]
@@ -435,6 +437,8 @@ mos:
   po_od_extx_constants:
     lch: [.inf]
     val: [[0, 0, 1]]
+  # vertical space between gate PO when no CPO is used
+  po_spy: 50
   # gate M1 dummy wire height
   g_m1_dum_h: 40
   # gate wire bottom layer ID
