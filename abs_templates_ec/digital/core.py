@@ -91,6 +91,11 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
         self._endr_infos = None
 
     @property
+    def num_cols(self):
+        # type: () -> int
+        return self._dig_size[0]
+
+    @property
     def digital_size(self):
         return self._dig_size
 
@@ -98,8 +103,23 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
     def laygo_info(self):
         return self._laygo_info
 
-    def initialize(self, layout_info, num_rows, draw_boundaries, end_mode,
-                   guard_ring_nf=0, num_col=None):
+    @property
+    def row_layout_info(self):
+        return dict(
+            config=self.params['config'],
+            top_layer=self._laygo_info.top_layer,
+            guard_ring_nf=self._laygo_info.guard_ring_nf,
+            draw_boundaries=self._laygo_info.draw_boundaries,
+            end_mode=self._laygo_info.end_mode,
+            row_prop_list=self._row_layout_info['row_prop_list'],
+            bot_sub_extw=self._row_layout_info['bot_sub_extw'],
+            top_sub_extw=self._row_layout_info['top_sub_extw'],
+            row_edge_infos=self._row_layout_info['row_edge_infos'],
+            ext_edge_infos=self._row_layout_info['ext_edge_infos'],
+        )
+
+    def initialize(self, layout_info, num_rows, num_cols=None, draw_boundaries=False, end_mode=0,
+                   guard_ring_nf=0):
 
         bot_sub_extw = layout_info['bot_sub_extw']
         top_sub_extw = layout_info['top_sub_extw']
@@ -113,7 +133,7 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
         self._laygo_info.guard_ring_nf = guard_ring_nf
         self._laygo_info.draw_boundaries = draw_boundaries
         self._laygo_info.end_mode = end_mode
-        self._laygo_info.set_num_col(num_col)
+        self._laygo_info.set_num_col(num_cols)
 
         self.grid = self._laygo_info.grid
         self._row_layout_info = layout_info
@@ -228,18 +248,18 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
             self._ext_params.append((row_idx + 1, w * 2, ycur - w * mos_pitch))
             ycur += self._row_height
 
-        if num_col is not None:
-            self.set_digital_size(num_col=num_col)
+        if num_cols is not None:
+            self.set_digital_size(num_cols=num_cols)
 
-    def set_digital_size(self, num_col=None):
+    def set_digital_size(self, num_cols=None):
         if self._dig_size is None:
-            if num_col is None:
-                num_col = 0
+            if num_cols is None:
+                num_cols = 0
                 for intv in self._used_list:
-                    num_col = max(num_col, intv.get_end())
+                    num_cols = max(num_cols, intv.get_end())
 
-            self._laygo_info.set_num_col(num_col)
-            self._dig_size = num_col, self._num_rows
+            self._laygo_info.set_num_col(num_cols)
+            self._dig_size = num_cols, self._num_rows
 
             top_layer = self._laygo_info.top_layer
 
@@ -253,39 +273,49 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
 
     def add_digital_block(self, master, loc=(0, 0), flip=False, nx=1, spx=0):
         col_idx, row_idx = loc
-        if row_idx < 0 or row_idx >= self._num_rows:
+        num_inst_col, num_inst_row = master.digital_size
+        y0 = row_idx * self._row_height + self._ybot[1]
+        ext_info = master.get_ext_bot_info(), master.get_ext_top_info()
+        inst_endl_iter = master.get_left_edge_info()
+        inst_endr_iter = master.get_right_edge_info()
+        if row_idx % 2 == 0:
+            orient = 'MY' if flip else 'R0'
+            rbot, rtop = row_idx, row_idx + num_inst_row
+        else:
+            inst_endl_iter = reversed(inst_endl_iter)
+            inst_endr_iter = reversed(inst_endr_iter)
+            ext_info = ext_info[1], ext_info[0]
+            y0 += self._row_height
+            orient = 'R180' if flip else 'MX'
+            rbot, rtop = row_idx + 1 - num_inst_row, row_idx + 1
+
+        if rbot < 0 or rtop > self._num_rows:
             raise ValueError('Cannot add block at row %d' % row_idx)
 
         col_width = self._laygo_info.col_width
+        x0 = self._laygo_info.col_to_coord(col_idx, unit_mode=True)
 
-        intv = self._used_list[row_idx]
-        inst_endl = master.get_left_edge_info()
-        inst_endr = master.get_right_edge_info()
         if flip:
-            inst_endl, inst_endr = inst_endr, inst_endl
+            x0 += num_inst_col
+            inst_endl_iter, inst_endr_iter = inst_endr_iter, inst_endl_iter
 
-        num_inst_col = master.laygo_size[0]
-        ext_info = master.get_ext_bot_info(), master.get_ext_top_info()
-        if row_idx % 2 == 1:
-            ext_info = ext_info[1], ext_info[0]
-
-        for inst_num in range(nx):
-            intv_offset = col_idx + spx * inst_num
-            inst_intv = intv_offset, intv_offset + num_inst_col
-            if not intv.add(inst_intv, ext_info, inst_endl, inst_endr):
-                raise ValueError('Cannot add primitive on row %d, '
-                                 'column [%d, %d).' % (row_idx, inst_intv[0], inst_intv[1]))
-
-        x0 = self._laygo_info.col_to_coord(col_idx, 's', unit_mode=True)
-        if flip:
-            x0 += master.digital_size[0]
-
-        y0 = row_idx * self._row_height + self._ybot[1]
-        if row_idx % 2 == 0:
-            orient = 'MY' if flip else 'R0'
-        else:
-            y0 += self._row_height
-            orient = 'R180' if flip else 'MX'
+        for yidx, inst_endl, inst_endr in zip(range(num_inst_row), inst_endl_iter, inst_endr_iter):
+            intv = self._used_list[rbot + yidx]
+            if yidx == 0:
+                if yidx == num_inst_row - 1:
+                    cur_ext_info = ext_info
+                else:
+                    cur_ext_info = ext_info[0], None
+            elif yidx == num_inst_row - 1:
+                cur_ext_info = None, ext_info[1]
+            else:
+                cur_ext_info = None, None
+            for inst_num in range(nx):
+                intv_offset = col_idx + spx * inst_num
+                inst_intv = intv_offset, intv_offset + num_inst_col
+                if not intv.add(inst_intv, cur_ext_info, inst_endl, inst_endr):
+                    raise ValueError('Cannot add block on row %d, column '
+                                     '[%d, %d).' % (rbot + yidx, inst_intv[0], inst_intv[1]))
 
         # convert horizontal pitch to resolution units
         spx *= col_width
@@ -422,7 +452,7 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
                                                 'MX', 'XTSUB%d')):
             port_name = 'VSS' if m1.has_port('VSS') else 'VDD'
             for col_idx in range(0, num_col, 2):
-                xcur = laygo_info.col_to_coord(col_idx, 's', unit_mode=True)
+                xcur = laygo_info.col_to_coord(col_idx, unit_mode=True)
                 if col_idx in port_cols:
                     inst = self.add_instance(m1, inst_name=name % col_idx, loc=(xcur, y),
                                              orient=orient, unit_mode=True)
