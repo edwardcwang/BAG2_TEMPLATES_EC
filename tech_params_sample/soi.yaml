@@ -205,6 +205,9 @@ mos_analog:
   w_delta:
     lch: [.inf]
     val: [0]
+  # horizontal space between PO and OD
+  po_od_spx: 10
+  # space between body PO and via 0
   sp_bpo_v0:
     lch: [.inf]
     val: [100]
