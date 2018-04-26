@@ -165,6 +165,8 @@ mos:
   floating_dummy: False
   # True if AnalogMosConn can abut each other.
   abut_analog_mos: True
+  # True to draw OD in substrate contact.  False generally used to draw SOI transistors.
+  draw_sub_od: True
   # channel length used in substrate rings.
   sub_ring_lch: 20.0e-9
   # vertical dummy wires pitch, in routing grid tracks.
