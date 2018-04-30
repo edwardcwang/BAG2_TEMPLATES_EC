@@ -23,18 +23,16 @@ class Test(TemplateBase):
 
     def draw_layout(self):
         layer = 4
+        tr0 = 4
 
         warr_list2 = [
-            self.add_wires(layer + 1, 5, 500, 2200, unit_mode=True),
+            self.add_wires(layer + 1, 10, 500, 2200, unit_mode=True),
             self.add_wires(layer - 1, 8, 0, 300, unit_mode=True),
             self.add_wires(layer - 1, 12, 2000, 2200, width=2, unit_mode=True),
         ]
 
-        blk_w, blk_h = BiasShield.get_block_size(self.grid, layer, len(warr_list2))
-        tr_upper = 10000
-        tr_upper = (tr_upper // blk_w) * blk_w
-        result = BiasShield.add_bias_shields(self, layer, warr_list2, 0, 700, tr_upper,
-                                             mode=1, lu_end_mode=2)
+        result = BiasShield.add_bias_shields(self, layer, warr_list2, tr0,
+                                             mode=1, lu_end_mode=1)
 
 
 if __name__ == '__main__':
