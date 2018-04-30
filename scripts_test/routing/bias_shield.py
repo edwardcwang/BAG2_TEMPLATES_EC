@@ -4,11 +4,11 @@ import yaml
 
 from bag.core import BagProject
 
-from abs_templates_ec.routing.bias import BiasBusUnit
+from abs_templates_ec.routing.bias import BiasShield
 
 
 if __name__ == '__main__':
-    with open('specs_test/abs_templates_ec/routing/bias_bus_unit.yaml', 'r') as f:
+    with open('specs_test/abs_templates_ec/routing/bias_shield.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
@@ -20,4 +20,4 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    bprj.generate_cell(block_specs, BiasBusUnit, debug=True)
+    bprj.generate_cell(block_specs, BiasShield, debug=True)
