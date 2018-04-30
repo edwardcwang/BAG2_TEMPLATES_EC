@@ -30,7 +30,10 @@ class Test(TemplateBase):
             self.add_wires(layer - 1, 6, 2000, 2200, width=2, unit_mode=True),
         ]
 
-        result = BiasShield.add_bias_shields(self, layer, warr_list2, 0, 700, 10000,
+        blk_w, blk_h = BiasShield.get_shield_size(self, layer, len(warr_list2))
+        tr_upper = 10000
+        tr_upper = (tr_upper // blk_w) * blk_w
+        result = BiasShield.add_bias_shields(self, layer, warr_list2, 0, 700, tr_upper,
                                              mode=1)
 
 
