@@ -32,7 +32,7 @@ class Test(TemplateBase):
         ]
 
         result = BiasShield.add_bias_shields(self, layer, warr_list2, tr0,
-                                             mode=1, lu_end_mode=1)
+                                             dir_mode=1, lu_end_mode=1)
 
 
 if __name__ == '__main__':
