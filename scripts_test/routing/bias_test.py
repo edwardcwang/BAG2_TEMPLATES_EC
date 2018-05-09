@@ -32,7 +32,7 @@ class Test(TemplateBase):
 
         nwire = len(warr_list2)
         blk_w, blk_h = BiasShield.get_block_size(self.grid, layer, nwire)
-        result = BiasShield.draw_bias_shields(self, layer, warr_list2, 2 * blk_h, lu_end_mode=1)
+        result = BiasShield.connect_bias_shields(self, layer, warr_list2, 2 * blk_h, lu_end_mode=1)
         print(result)
 
 
