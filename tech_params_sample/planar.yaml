@@ -182,7 +182,7 @@ mos:
   # horizontal enclosure of implant layers over OD
   imp_od_encx: 100
   # maximum space between OD rows.
-  sp_od_max: 100
+  od_spy_max: 100
   # minimum OD density
   od_min_density: 0.20
   # dummy OD height range.
@@ -230,15 +230,15 @@ mos:
     lch: [.inf]
     val: [1]
   # space between PO
-  sp_po:
+  po_spy:
     lch: [.inf]
     val: [10]
   # vertical space between gate/drain metal wires.
-  sp_gd_mx:
+  mx_gd_spy:
     lch: [.inf]
     val: [10]
   # space between gate wire and OD
-  sp_gd_od:
+  od_gd_spy:
     lch: [.inf]
     val: [10]
   # PO extension over OD
