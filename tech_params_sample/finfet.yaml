@@ -613,7 +613,6 @@ resistor:
       min_nsq: 1
       w_bounds: !!python/tuple [10, 20]
       l_bounds: !!python/tuple [20, 50]
-      need_rpo: True
       # True to draw RPO layer, which is a layer that makes
       # PO resistive.
       need_rpo: True
