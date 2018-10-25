@@ -108,8 +108,9 @@ def make_tdb(prj, target_lib, specs):
     spaces = grid_specs['spaces']
     widths = grid_specs['widths']
     bot_dir = grid_specs['bot_dir']
+    width_override = grid_specs.get('width_override', None)
 
-    routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir)
+    routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir, width_override=width_override)
     tdb = TemplateDB('template_libs.def', routing_grid, target_lib, use_cybagoa=True)
     return tdb
 
