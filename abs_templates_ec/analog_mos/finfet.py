@@ -491,6 +491,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         fg_outer_min = mos_constants['fg_outer_min']
         cpo_po_extx = mos_constants['cpo_po_extx']
         po_od_extx = mos_constants['po_od_extx']
+        od_fin_extx = mos_constants['od_fin_extx']
         fg_outer_gr = mos_constants.get('fg_outer_gr', 0)
         is_planar_sub = self.is_planar_substrate(lch_unit, guard_ring_nf=guard_ring_nf, **kwargs)
 
@@ -518,6 +519,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         if guard_ring_nf == 0:
             fg_gr_sub = 0
             fg_gr_sep = 0
+            fg_od_sep = fg_outer
         else:
             fg_gr_sub = guard_ring_nf + 2 * fg_od_margin
             if is_planar_sub:
@@ -529,18 +531,23 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 else:
                     fg_gr_sep = fg_od_margin
                 fg_outer = fg_outer_gr
+            fg_od_sep = fg_outer + fg_od_margin
 
-        # compute edge margin and cpo_xl
+            # compute edge margin and cpo_xl
         if is_end:
             edge_margin = outer_margin
             cpo_xl = (sd_pitch - lch_unit) // 2 - cpo_po_extx
+            # compute fin margin
+            od_xl = fg_od_sep * sd_pitch + (sd_pitch - lch_unit) // 2 - po_od_extx
+            fin_xl = od_xl - od_fin_extx
         else:
-            edge_margin = cpo_xl = 0
+            edge_margin = cpo_xl = fin_xl = 0
 
         return dict(
             edge_num_fg=fg_outer + fg_gr_sub + fg_gr_sep,
             edge_margin=edge_margin,
             cpo_xl=cpo_xl,
+            fin_xl=fin_xl,
             fg_outer=fg_outer,
             fg_gr_sub=fg_gr_sub,
             fg_gr_sep=fg_gr_sep,
@@ -1410,6 +1417,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # type: (str, int, int, ExtInfo, **kwargs) -> Dict[str, Any]
         dnw_mode = kwargs.get('dnw_mode', '')
 
+        mos_layer_table = self.config['mos_layer_table']
         lch = self.get_substrate_ring_lch()
         lch_unit = int(round(lch / self.config['layout_unit'] / self.res))
 
@@ -1426,6 +1434,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                                          od_y=od_y, row_y=row_y, po_y=po_y, md_y=md_y))
 
         lr_edge_info = EdgeInfo(od_type='dum', draw_layers={}, y_intv={})
+        finbound_lay = mos_layer_table['FB']
         layout_info = dict(
             blk_type='ext_subring',
             lch_unit=lch_unit,
@@ -1433,7 +1442,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             arr_y=(0, height),
             draw_od=False,
             row_info_list=row_info_list,
-            lay_info_list=[],
+            lay_info_list=[(finbound_lay, 0, 0, height)],
             # TODO: figure out how to do fill in extension block.
             fill_info_list=[],
             # edge parameters
@@ -1649,15 +1658,19 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         edge_info = self.get_edge_info(lch_unit, guard_ring_nf, is_end, dnw_mode=dnw_mode)
         fg_outer = edge_info['fg_outer']
         cpo_xl = edge_info['cpo_xl']
+        fin_xl = edge_info['fin_xl']
 
         # compute new lay_info_list
         cpo_lay = mos_layer_table['CPO']
+        fin_lay = mos_layer_table['FB']
         if guard_ring_nf == 0 or imp_params is None:
             # we keep all implant layers, just update CPO left coordinate.
             new_lay_list = []
             for lay, _, yb, yt in lay_info_list:
                 if lay == cpo_lay:
                     new_lay_list.append((lay, cpo_xl, yb, yt))
+                elif lay == fin_lay:
+                    new_lay_list.append((lay, fin_xl, yb, yt))
                 elif lay in imp_edge_dx:
                     offset, lch_scale, sd_scale = imp_edge_dx[lay]
                     cur_xl = (offset + int(round(lch_scale * lch_unit)) +
@@ -1672,6 +1685,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             for lay, _, yb, yt in lay_info_list:
                 if lay == cpo_lay:
                     new_lay_list.append((lay, cpo_xl, yb, yt))
+                elif lay == fin_lay:
+                    new_lay_list.append((lay, fin_xl, yb, yt))
             # get new implant layers
             for mtype, thres, imp_yb, imp_yt, thres_yb, thres_yt in imp_params:
                 sub_type = 'ptap' if mtype == 'nch' or mtype == 'ptap' else 'ntap'
@@ -1774,6 +1789,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         edge_info = self.get_edge_info(lch_unit, guard_ring_nf, True, dnw_mode=dnw_mode)
         fg_gr_sub = edge_info['fg_gr_sub']
         fg_od_margin = edge_info['fg_od_margin']
+        fin_xl = edge_info['fin_xl']
 
         # compute new row_info_list
 
@@ -1798,6 +1814,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         # compute new lay_info_list
         cpo_lay = mos_layer_table['CPO']
+        fin_lay = mos_layer_table['FB']
         wblk = fg_gr_sub * sd_pitch
         if imp_params is None:
             # copy implant layers, but update left coordinate of DNW layers
@@ -1806,7 +1823,10 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 if lay_name in dnw_layers:
                     new_lay_list.append((lay_name, wblk - nw_dnw_ovl, yb, yt))
                 elif edge_blk_type == 'gr_sub_end_sub':
-                    new_lay_list.append((lay_name, xl, arr_y[0], arr_y[1]))
+                    if lay_name == fin_lay:
+                        new_lay_list.append((lay_name, fin_xl, arr_y[0], arr_y[1]))
+                    else:
+                        new_lay_list.append((lay_name, xl, arr_y[0], arr_y[1]))
                 else:
                     if not (is_planar_sub and lay_name == cpo_lay):
                         new_lay_list.append((lay_name, xl, yb, yt))
@@ -1896,12 +1916,23 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                                             dnw_mode=dnw_mode)
         fg_gr_sep = edge_constants['fg_gr_sep']
         cpo_xl = edge_constants['cpo_xl']
+        fin_xl = edge_constants['fin_xl']
 
         # compute new row_info_list
         if is_planar_sub or is_gr_continuous:
             cpo_lay = mos_layer_table['CPO']
-            new_lay_list = [(lay, cpo_xl, yb, yt) if lay == cpo_lay else (lay, 0, yb, yt)
-                            for lay, _, yb, yt in lay_info_list]
+            fin_lay = mos_layer_table['FB']
+            new_lay_list = []
+            for lay, _, yb, yt in lay_info_list:
+                if lay == cpo_lay:
+                    new_lay_list.append((lay, cpo_xl, yb, yt))
+                elif lay == fin_lay:
+                    if blk_type == 'end_subring':
+                        new_lay_list.append((lay, fin_xl, 0, yt))
+                    else:
+                        new_lay_list.append((lay, fin_xl, yb, yt))
+                else:
+                    new_lay_list.append((lay, 0, yb, yt))
             if blk_type == 'sub':
                 od_x_list = [(0, fg_gr_sep)]
             else:
@@ -1945,6 +1976,9 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             left_blk_info=None,
             right_blk_info=adj_blk_info[0],
         )
+
+        if blk_type == 'end_subring' or blk_type == 'ext_subring':
+            layout_info['fin_xr'] = - fin_xl
 
         if is_planar_sub and blk_type == 'sub':
             layout_info['no_po_region'] = set(range(fg_gr_sep))
@@ -2138,6 +2172,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         no_po_region = layout_info.get('no_po_region', set())
         no_md_region = layout_info.get('no_md_region', set())
         extra_rect_list = layout_info.get('extra_rect_list', None)
+        fin_xr = layout_info.get('fin_xr', None)
 
         if extra_rect_list:
             for (lay, xl, yb, xr, yt) in extra_rect_list:
@@ -2304,7 +2339,10 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 # round to fin grid
                 yb = (yb - fin_p2 + fin_h2) // fin_p * fin_p + fin_p2 - fin_h2
                 yt = -(-(yt - fin_p2 - fin_h2) // fin_p) * fin_p + fin_p2 + fin_h2
-            box = BBox(xl, yb, blk_w, yt, res, unit_mode=True)
+            if fin_xr:
+                box = BBox(xl, yb, fin_xr, yt, res, unit_mode=True)
+            else:
+                box = BBox(xl, yb, blk_w, yt, res, unit_mode=True)
             if box.is_physical() and imp_lay[0] != '':
                 self.draw_mos_rect(template, imp_lay, box)
 
