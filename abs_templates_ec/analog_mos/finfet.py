@@ -533,7 +533,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 fg_outer = fg_outer_gr
             fg_od_sep = fg_outer + fg_od_margin
 
-            # compute edge margin and cpo_xl
+        # compute edge margin and cpo_xl
         if is_end:
             edge_margin = outer_margin
             cpo_xl = (sd_pitch - lch_unit) // 2 - cpo_po_extx
