@@ -1978,6 +1978,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         )
 
         if blk_type == 'end_subring' or blk_type == 'ext_subring':
+            # fin grid should not extend across entire end separator block
             layout_info['fin_xr'] = - fin_xl
 
         if is_planar_sub and blk_type == 'sub':
