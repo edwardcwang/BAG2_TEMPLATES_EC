@@ -369,6 +369,7 @@ class SubstrateRing(TemplateBase):
         return dict(
             show_pins=False,
             dnw_mode='',
+            half_blk_x=True,
         )
 
     @classmethod
@@ -392,6 +393,7 @@ class SubstrateRing(TemplateBase):
             threshold='substrate threshold flavor.',
             show_pins='True to show pin labels.',
             dnw_mode='deep N-well mode string.  Empty string to disable.',
+            half_blk_x='True to allow half block width',
         )
 
     def draw_layout(self):
@@ -405,6 +407,7 @@ class SubstrateRing(TemplateBase):
         threshold = self.params['threshold']
         show_pins = self.params['show_pins']
         dnw_mode = self.params['dnw_mode']
+        half_blk_x = self.params.get('half_blk_x', True)
 
         sub_end_mode = 15
         lch = self._tech_cls.get_substrate_ring_lch()
@@ -412,7 +415,8 @@ class SubstrateRing(TemplateBase):
         # create layout masters
         box_w, box_h = bound_box.width_unit, bound_box.height_unit
         layout_info = AnalogBaseInfo(self.grid, lch, fg_side, top_layer=top_layer,
-                                     end_mode=sub_end_mode, is_sub_ring=True, dnw_mode=dnw_mode)
+                                     end_mode=sub_end_mode, is_sub_ring=True, dnw_mode=dnw_mode,
+                                     half_blk_x=half_blk_x)
         sd_pitch = layout_info.sd_pitch_unit
         mtop_lay = layout_info.mconn_port_layer + 1
 
