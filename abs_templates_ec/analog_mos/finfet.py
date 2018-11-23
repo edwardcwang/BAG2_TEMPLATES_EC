@@ -170,7 +170,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             the wire direction.  2 for up, 1 for middle, 0 for down.
         ds_code : int
             the drain/source code.  1 to draw source, 2 to draw drain, 3 to draw substrate
-            connnection, 4 to draw substrate connection in guard ring.
+            connection, 4 to draw substrate connection in guard ring.
         **kwargs :
             optional parameters.  Must support:
 
@@ -344,6 +344,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         offset, h_scale, p_scale = mos_constants.get('od_fin_exty_constants', (0, 0, 0))
         mos_constants['od_fin_exty'] = (offset + int(round(h_scale * fin_h)) +
                                         int(round(p_scale * fin_p)))
+        if 'blk_pitch' not in mos_constants:
+            mos_constants['blk_pitch'] = fin_p
 
     def get_has_cpo(self, mos_constants, **kwargs):
         return mos_constants['has_cpo']
@@ -387,7 +389,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         return (w - 1) * fin_p + fin_h + 2 * od_fin_exty
 
     def get_od_h_inverse(self, lch_unit, od_h, round_up=None):
-        # type: (int, int) -> int
+        # type: (int, int, bool) -> int
         """Calculate number of fins from OD height."""
         mos_constants = self.get_mos_tech_constants(lch_unit)
         fin_h = mos_constants['fin_h']
@@ -404,7 +406,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         return w
 
     def get_od_spy_nfin(self, lch_unit, sp, round_up=True):
-        # type: (int, int) -> int
+        # type: (int, int, bool) -> int
         """Calculate OD vertical space in number of fin pitches, rounded up.
 
         Space of 0 means no fins are between the two OD.
@@ -536,7 +538,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # compute edge margin and cpo_xl
         if is_end:
             edge_margin = outer_margin
-            cpo_xl = (sd_pitch - lch_unit) // 2 - cpo_po_extx
+            cpo_xl = (sd_pitch - lch_unit) // 2 - cpo_po_extx if mos_constants['has_cpo'] else 0
             # compute fin margin
             od_xl = fg_od_sep * sd_pitch + (sd_pitch - lch_unit) // 2 - po_od_extx
             fin_xl = od_xl - od_fin_extx
@@ -723,6 +725,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         mos_constants = self.get_mos_tech_constants(lch_unit)
         fin_p = mos_constants['mos_pitch']  # type: int
+        blk_pitch = mos_constants['blk_pitch']
         od_spy_dum = mos_constants.get('od_spy_dum', mos_constants['od_spy'])
         od_nfin_min = mos_constants['od_fill_h'][0]
         imp_od_ency = mos_constants['imp_od_ency']
@@ -746,11 +749,11 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         top_imp_min_h = top_ext_info.imp_min_h  # type: int
 
         # step 1: get minimum extension width from vertical spacing rule
-        min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // fin_p))
+        min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // blk_pitch))
         for name, (tm, cur_spy) in top_ext_info.margins.items():
             if not ignore_vm or name not in self.ignore_vm_layers:
                 tot_margin = cur_spy - (tm + bot_ext_info.margins[name][0])
-                min_ext_h = max(min_ext_h, -(-tot_margin // fin_p))
+                min_ext_h = max(min_ext_h, -(-tot_margin // blk_pitch))
 
         # step 2: get maximum extension width without dummy OD
         od_bot_yt = -bot_ext_info.margins['od'][0]
@@ -790,7 +793,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         # check to see MD minimum height rule is satisfied
         min_ext_w_od = max(min_ext_w_od, md_h_min - (dum_md_yt - dum_md_yb))
         # round min_ext_w_od to fin grid.
-        min_ext_w_od = -(-min_ext_w_od // fin_p)
+        min_ext_w_od = -(-min_ext_w_od // blk_pitch)
 
         if min_ext_w_od <= max_ext_w_no_od + 1:
             # we can transition from no-dummy to dummy seamlessly
@@ -1042,6 +1045,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         mos_constants = self.get_mos_tech_constants(lch_unit)
         fin_p = mos_constants['mos_pitch']
+        blk_pitch = mos_constants['blk_pitch']
         cpo_spy = mos_constants['cpo_spy']
         imp_od_ency = mos_constants['imp_od_ency']
         has_cpo = self.get_has_cpo(mos_constants, **kwargs)
@@ -1052,12 +1056,15 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         _, bot_row_type = bot_ext_info.mtype
         top_is_sub = (top_row_type == 'ptap' or top_row_type == 'ntap')
         bot_is_sub = (bot_row_type == 'ptap' or bot_row_type == 'ntap')
-        yt = w * fin_p
+        yt = w * blk_pitch
         yc = yt // 2
 
         # check if we draw one or two CPO.  Compute threshold split Y coordinates accordingly.
-        cpo2_w = -(-(cpo_spy + cpo_h) // fin_p)  # type: int
-        one_cpo = has_cpo and (w < cpo2_w)
+        if has_cpo:
+            cpo2_w = -(-(cpo_spy + cpo_h) // fin_p)  # type: int
+            one_cpo = (w < cpo2_w)
+        else:
+            one_cpo = False
 
         num_dod = len(od_y_list)
         if not od_y_list:
@@ -1148,6 +1155,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         imp_layers_info_struct = mos_constants['imp_layers']
         thres_layers_info_struct = mos_constants['thres_layers']
         fin_p = mos_constants['mos_pitch']
+        blk_pitch = mos_constants['blk_pitch']
         has_cpo = self.get_has_cpo(mos_constants, **kwargs)
         cpo_spy = mos_constants['cpo_spy']
         cpo_h = mos_constants['cpo_h']
@@ -1159,7 +1167,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         is_sub_ring = bot_ext_info.is_sub_ring and top_ext_info.is_sub_ring
         is_planar_sub = self.is_planar_substrate(lch_unit, is_sub_ring=is_sub_ring, **kwargs)
 
-        yt = w * fin_p
+        yt = w * blk_pitch
         yc = yt // 2
 
         top_mtype, top_row_type = top_ext_info.mtype
@@ -1180,8 +1188,11 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         adj_row_list, adj_edgel_infos, adj_edger_infos, thres_split_y, imp_split_y = tmp
 
         # check if we draw one or two CPO
-        cpo2_w = -(-(cpo_spy + cpo_h) // fin_p)  # type: int
-        one_cpo = has_cpo and (w < cpo2_w)
+        if has_cpo:
+            cpo2_w = -(-(cpo_spy + cpo_h) // fin_p)  # type: int
+            one_cpo = (w < cpo2_w)
+        else:
+            one_cpo = False
 
         lay_info_list = []
         num_dod = len(od_y_list)
@@ -1510,7 +1521,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         cpo_lay = mos_layer_table['CPO']
         finbound_lay = mos_layer_table['FB']
         if is_end:
-            blk_pitch = lcm([blk_pitch, fin_p])
+            blk_pitch = lcm([blk_pitch, mos_constants['blk_pitch']])
             # first assume top Y coordinate is 0
             if is_planar_sub or not has_cpo:
                 arr_yt = -(-edge_margin // blk_pitch) * blk_pitch
@@ -2006,8 +2017,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         """
         template.add_rect(layer, bbox)
 
-    def draw_od(self, template, od_type, bbox):
-        # type: (TemplateBase, str, BBox) -> None
+    def draw_od(self, template, od_type, bbox, **kwargs):
+        # type: (TemplateBase, str, BBox, **kwargs) -> None
         """This method draws a transistor OD.
 
         By default, this method just calls draw_mos_rect() on the OD layer.
@@ -2262,19 +2273,22 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                             # modify OD geometry inside planar guard ring
                             if blk_type == 'gr_sub_sub':
                                 self.draw_od(template, od_name,
-                                             BBox(od_xl, od_yt, od_xr, arr_yt, res, unit_mode=True))
+                                             BBox(od_xl, od_yt, od_xr, arr_yt, res, unit_mode=True),
+                                             blk_type=blk_type, sub_type=layout_info['sub_type'])
                                 od_xr = po_xc + lch_unit // 2 + (fg - 1) * sd_pitch + po_od_extx
                             elif blk_type == 'gr_sub':
                                 od_yb = 0
                                 od_yt = arr_yt
                         od_box = BBox(od_xl, od_yb, od_xr, od_yt, res, unit_mode=True)
-                        self.draw_od(template, od_name, od_box)
+                        self.draw_od(template, od_name, od_box, blk_type=blk_type,
+                                     sub_type=layout_info['sub_type'])
             elif is_planar_sub and blk_type == 'gr_sub' and arr_yt > arr_yb:
                 od_start, od_stop = od_x_list[0]
                 od_xl = po_xc - lch_unit // 2 + od_start * sd_pitch - po_od_extx
                 od_xr = po_xc + lch_unit // 2 + (od_stop - 1) * sd_pitch + po_od_extx
                 od_box = BBox(od_xl, arr_yb, od_xr, arr_yt, res, unit_mode=True)
-                self.draw_od(template, od_name, od_box)
+                self.draw_od(template, od_name, od_box, blk_type=blk_type,
+                             sub_type=layout_info['sub_type'])
 
             # draw PO/PODE
             if row_y[1] > row_y[0]:
