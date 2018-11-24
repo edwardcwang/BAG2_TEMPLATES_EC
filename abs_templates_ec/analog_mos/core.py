@@ -861,9 +861,7 @@ class MOSTech(object, metaclass=abc.ABCMeta):
         mos_pitch : Union[float, int]
             the transistor vertical placement quantization pitch.
         """
-        ans = self.mos_config['mos_pitch']
-        if 'blk_pitch' in self.mos_config:
-            ans = self.mos_config['blk_pitch']
+        ans = self.mos_config.get('blk_pitch', self.mos_config['mos_pitch'])
         if unit_mode:
             return ans
         return ans * self.res

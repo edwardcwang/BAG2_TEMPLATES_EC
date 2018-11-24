@@ -1746,7 +1746,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 new_adj_row_list.append(adj_info._replace(po_types=po_types))
 
         layout_info = dict(
-            blk_type='edge' if guard_ring_nf == 0 else 'gr_edge',
+            blk_type='edge_'+blk_type if guard_ring_nf == 0 else 'gr_edge_'+blk_type,
             lch_unit=lch_unit,
             fg=fg_outer,
             arr_y=arr_y,
