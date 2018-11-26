@@ -601,8 +601,6 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         g_conn_y = yloc_info['g_conn_y']
         d_conn_y = yloc_info['d_conn_y']
 
-        od_yc = (od_yloc[0] + od_yloc[1]) // 2
-
         # Compute extension information
         lr_edge_info = EdgeInfo(od_type=od_type, draw_layers={}, y_intv={})
 
@@ -682,12 +680,17 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             ext_bot_info=ext_bot_info,
             left_edge_info=(lr_edge_info, []),
             right_edge_info=(lr_edge_info, []),
-            sd_yc=od_yc,
+            sd_yc=self.get_sd_yc(yloc_info),
             po_y=po_y,
             od_y=od_yloc,
             g_conn_y=g_conn_y,
             d_conn_y=d_conn_y,
         )
+
+    def get_sd_yc(self, yloc_info):
+        od_yloc = yloc_info['od']
+        od_yc = (od_yloc[0] + od_yloc[1]) // 2
+        return od_yc
 
     def get_mos_info(self, lch_unit, w, mos_type, threshold, fg, **kwargs):
         # type: (int, int, str, str, int, **kwargs) -> Dict[str, Any]

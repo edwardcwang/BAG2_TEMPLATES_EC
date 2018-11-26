@@ -659,8 +659,8 @@ class MOSTech(object, metaclass=abc.ABCMeta):
             dum_layer = self.get_dum_conn_layer()
             d_conn_w = ans['d_conn_w']
             d_bot_layer = ans['d_bot_layer']
-            ans['mos_conn_w'] = d_conn_w[dum_layer - d_bot_layer]
-            ans['dum_conn_w'] = d_conn_w[mos_layer - d_bot_layer]
+            ans['mos_conn_w'] = d_conn_w[mos_layer - d_bot_layer]
+            ans['dum_conn_w'] = d_conn_w[dum_layer - d_bot_layer] if dum_layer else ans['md_w']
             # handle laygo_conn_w
             if 'laygo_d_conn_w' in ans:
                 d_conn_w = ans['laygo_d_conn_w']
