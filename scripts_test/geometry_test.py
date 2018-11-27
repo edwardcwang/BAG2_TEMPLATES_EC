@@ -25,12 +25,12 @@ class Test1(TemplateBase):
         res = self.grid.resolution
 
         # simple rectangle
-        self.add_rect('m1', BBox(100, 60, 180, 80, res, unit_mode=True))
+        self.add_rect('M1', BBox(100, 60, 180, 80, res, unit_mode=True))
 
         # a path
         width = 20
         points = [(0, 0), (2000, 0), (3000, 1000), (3000, 3000)]
-        path = Path(res, 'm2', width, points, 'truncate', 'round', unit_mode=True)
+        path = Path(res, 'M2', width, points, 'truncate', 'round', unit_mode=True)
         self.add_path(path)
 
         # set top layer and bounding box so parent can query those
@@ -55,15 +55,15 @@ class Test2(TemplateBase):
         self.add_instance(master, 'X0', loc=(-100, -100), orient='MX', unit_mode=True)
 
         # add via, using BAG's technology DRC calculator
-        self.add_via(BBox(0, 0, 1000, 1000, res, unit_mode=True),
-                     'm1', 'm2', 'x')
+        self.add_via(BBox(0, 0, 100, 100, res, unit_mode=True),
+                     'M1', 'M2', 'x')
 
         # add a primitive pin
-        self.add_pin_primitive('mypin', 'm1', BBox(-100, 0, 0, 20, res, unit_mode=True))
+        self.add_pin_primitive('mypin', 'M1', BBox(-100, 0, 0, 20, res, unit_mode=True))
 
         # add a polygon
         points = [(0, 0), (300, 200), (100, 400)]
-        p = Polygon(res, 'm3', points, unit_mode=True)
+        p = Polygon(res, 'M3', points, unit_mode=True)
         self.add_polygon(p)
 
         # add a blockage
@@ -80,7 +80,7 @@ class Test2(TemplateBase):
         widths = [100, 50, 100]
         spaces = [80, 80]
         points = [(0, -3000), (-3000, -3000), (-4000, -2000), (-4000, 0)]
-        bus = TLineBus(res, ('m2', 'drawing'), points, widths, spaces, end_style='round',
+        bus = TLineBus(res, ('M2', 'drawing'), points, widths, spaces, end_style='round',
                        unit_mode=True)
         for p in bus.paths_iter():
             self.add_path(p)

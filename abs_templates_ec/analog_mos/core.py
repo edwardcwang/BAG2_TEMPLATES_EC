@@ -200,7 +200,7 @@ class MOSTech(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_substrate_info(self, lch_unit, w, sub_type, threshold, fg, blk_pitch=1, **kwargs):
-        # type: (int, int, str, str, int, int, int, **kwargs) -> Dict[str, Any]
+        # type: (int, int, str, str, int, int, **kwargs) -> Dict[str, Any]
         """Returns the substrate layout information dictionary.
 
         Parameters
@@ -622,6 +622,12 @@ class MOSTech(object, metaclass=abc.ABCMeta):
         """Optional method subclasses can override to add more entries to mos_constants."""
         pass
 
+    def get_dum_conn_w(self, mos_constants):
+        d_conn_w = mos_constants['d_conn_w']
+        d_bot_layer = mos_constants['d_bot_layer']
+        dum_layer = self.get_dum_conn_layer()
+        return d_conn_w[dum_layer - d_bot_layer]
+
     def get_mos_tech_constants(self, lch_unit):
         # type: (int) -> Dict[str, Any]
         """Returns a dictionary of technology constants given transistor channel length.
@@ -656,11 +662,10 @@ class MOSTech(object, metaclass=abc.ABCMeta):
 
             # handle mos/dum_conn_w
             mos_layer = self.get_mos_conn_layer()
-            dum_layer = self.get_dum_conn_layer()
             d_conn_w = ans['d_conn_w']
             d_bot_layer = ans['d_bot_layer']
             ans['mos_conn_w'] = d_conn_w[mos_layer - d_bot_layer]
-            ans['dum_conn_w'] = d_conn_w[dum_layer - d_bot_layer] if dum_layer else ans['md_w']
+            ans['dum_conn_w'] = self.get_dum_conn_w(ans)
             # handle laygo_conn_w
             if 'laygo_d_conn_w' in ans:
                 d_conn_w = ans['laygo_d_conn_w']
