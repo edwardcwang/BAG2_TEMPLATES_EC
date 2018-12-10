@@ -2524,10 +2524,14 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         od_yb, od_yt = row_info.od_y
         md_yb, md_yt = row_info.md_y
+        yloc_info = dict(
+            od=row_info.od_y,
+            md=row_info.md_y,
+        )
         # shift Y interval so that OD centers at y=0
-        od_yc = (od_yb + od_yt) // 2
-        od_y = od_yb - od_yc, od_yt - od_yc
-        md_y = md_yb - od_yc, md_yt - od_yc
+        sd_yc = self.get_sd_yc(yloc_info)
+        od_y = od_yb - sd_yc, od_yt - sd_yc
+        md_y = md_yb - sd_yc, md_yt - sd_yc
         wire_pitch = stack * sd_pitch
         num_seg = fg // stack
 
@@ -2628,10 +2632,14 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
         od_yb, od_yt = row_info.od_y
         md_yb, md_yt = row_info.md_y
+        yloc_info = dict(
+            od=row_info.od_y,
+            md=row_info.md_y,
+        )
         # shift Y interval so that OD centers at y=0
-        od_yc = (od_yb + od_yt) // 2
-        od_y = od_yb - od_yc, od_yt - od_yc
-        md_y = md_yb - od_yc, md_yt - od_yc
+        sd_yc = self.get_sd_yc(yloc_info)
+        od_y = od_yb - sd_yc, od_yt - sd_yc
+        md_y = md_yb - sd_yc, md_yt - sd_yc
 
         left_edge = edge_mode % 2 == 1
         right_edge = edge_mode // 2 == 1
