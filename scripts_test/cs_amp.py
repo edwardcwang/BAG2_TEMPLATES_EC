@@ -112,7 +112,6 @@ class CSAmp(AnalogBase):
             fg_dict='NMOS/PMOS number of fingers dictionary.',
             nduml='Number of left dummy fingers.',
             ndumr='Number of right dummy fingers.',
-            gds_space='number of tracks reserved as space between gate and drain/source tracks.',
             hm_width='width of horizontal track wires.',
             hm_cur_width='width of horizontal current track wires. If negative, defaults to hm_width.',
             guard_ring_nf='Width of the guard ring, in number of fingers.  0 to disable guard ring.',
@@ -133,7 +132,6 @@ class CSAmp(AnalogBase):
                             fg_dict,  # type: Dict[str, int]
                             nduml,  # type: int
                             ndumr,  # type: int
-                            gds_space,  # type: int
                             hm_width,  # type: int
                             hm_cur_width,  # type: int
                             guard_ring_nf,  # type: int
@@ -160,7 +158,6 @@ class CSAmp(AnalogBase):
             nth_list=[th_dict['n']],
             pw_list=[w_dict['p']],
             pth_list=[th_dict['p']],
-            gds_space=gds_space,
             ng_tracks=[hm_width],
             pg_tracks=[hm_width],
             nds_tracks=[1],
@@ -232,8 +229,9 @@ def make_tdb(prj, target_lib, specs):
     spaces = grid_specs['spaces']
     widths = grid_specs['widths']
     bot_dir = grid_specs['bot_dir']
+    width_override = grid_specs.get('width_override', None)
 
-    routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir)
+    routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir, width_override=width_override)
     tdb = TemplateDB('template_libs.def', routing_grid, target_lib, use_cybagoa=True)
     return tdb
 
