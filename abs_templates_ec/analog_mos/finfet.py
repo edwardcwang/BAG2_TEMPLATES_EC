@@ -1823,7 +1823,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             else:
                 edge_blk_type = 'gr_sub'
         else:
-            edge_blk_type = 'gr_sub'
+            edge_blk_type = 'gr_sub_end' if 'end' in blk_type else 'gr_sub'
 
         # compute new lay_info_list
         cpo_lay = mos_layer_table['CPO']
@@ -1973,7 +1973,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             new_adj_list.append(adj_info._replace(po_types=po_types))
 
         layout_info = dict(
-            blk_type='gr_sep',
+            blk_type='gr_sep_end' if 'end' in blk_type else 'gr_sep',
             lch_unit=lch_unit,
             fg=fg_gr_sep,
             arr_y=arr_y,
@@ -2276,21 +2276,19 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                             if blk_type == 'gr_sub_sub':
                                 self.draw_od(template, od_name,
                                              BBox(od_xl, od_yt, od_xr, arr_yt, res, unit_mode=True),
-                                             blk_type=blk_type, sub_type=layout_info['sub_type'])
+                                             od_flav=row_info.od_type)
                                 od_xr = po_xc + lch_unit // 2 + (fg - 1) * sd_pitch + po_od_extx
                             elif blk_type == 'gr_sub':
                                 od_yb = 0
                                 od_yt = arr_yt
                         od_box = BBox(od_xl, od_yb, od_xr, od_yt, res, unit_mode=True)
-                        self.draw_od(template, od_name, od_box, blk_type=blk_type,
-                                     sub_type=layout_info['sub_type'])
+                        self.draw_od(template, od_name, od_box, od_flav=row_info.od_type)
             elif is_planar_sub and blk_type == 'gr_sub' and arr_yt > arr_yb:
                 od_start, od_stop = od_x_list[0]
                 od_xl = po_xc - lch_unit // 2 + od_start * sd_pitch - po_od_extx
                 od_xr = po_xc + lch_unit // 2 + (od_stop - 1) * sd_pitch + po_od_extx
                 od_box = BBox(od_xl, arr_yb, od_xr, arr_yt, res, unit_mode=True)
-                self.draw_od(template, od_name, od_box, blk_type=blk_type,
-                             sub_type=layout_info['sub_type'])
+                self.draw_od(template, od_name, od_box, od_flav=row_info.od_type)
 
             # draw PO/PODE
             if row_y[1] > row_y[0]:
