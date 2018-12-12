@@ -1858,8 +1858,6 @@ class AnalogBase(TemplateBase, metaclass=abc.ABCMeta):
         else:
             self.set_size_from_bound_box(top_layer, bound_box)
 
-        self.add_cell_boundary(self.bound_box)
-
         # set left/right edge info
         self._lr_edge_info = (AnalogBaseEdgeInfo(le_info_list, []),
                               AnalogBaseEdgeInfo(re_info_list, []))
@@ -2760,5 +2758,3 @@ class AnalogBaseEnd(TemplateBase):
         top_bound_box = BBox(0, 0, tot_width, inst.bound_box.top_unit, res, unit_mode=True)
         self.set_size_from_bound_box(top_layer, top_bound_box)
         self.array_box = array_box
-
-        self.add_cell_boundary(self.bound_box)

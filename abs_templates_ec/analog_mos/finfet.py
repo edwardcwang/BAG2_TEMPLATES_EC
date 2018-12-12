@@ -2379,8 +2379,6 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         template.array_box = arr_box
         template.prim_bound_box = bound_box
         if bound_box.is_physical():
-            template.add_cell_boundary(bound_box)
-
             # draw metal fill.  This only needs to be done if the template has nonzero area.
             for fill_info in fill_info_list:
                 exc_lay = fill_info.exc_layer

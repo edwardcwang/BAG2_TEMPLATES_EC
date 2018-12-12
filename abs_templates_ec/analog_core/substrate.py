@@ -311,7 +311,6 @@ class SubstrateContact(TemplateBase):
         else:
             self.prim_bound_box = bound_box
             self.prim_top_layer = top_layer
-        self.add_cell_boundary(bound_box)
 
         hm_layer = layout_info.mconn_port_layer + 1
         if port_tid is None:
@@ -531,7 +530,6 @@ class SubstrateRing(TemplateBase):
             self.prim_top_layer = top_layer
             self.prim_bound_box = bnd_box
         self.array_box = BBox(arr_box_x[0], 0, arr_box_x[1], htot, res, unit_mode=True)
-        self.add_cell_boundary(self.bound_box)
 
         if dnw_mode:
             # add overlay DNW layer
@@ -754,7 +752,6 @@ class DeepNWellRing(TemplateBase):
         bnd_box = BBox(0, 0, sub_w + 2 * dx, sub_h + 2 * dy, res, unit_mode=True)
         self.set_size_from_bound_box(top_layer, bnd_box)
         self.array_box = bnd_box
-        self.add_cell_boundary(bnd_box)
 
         # record block location
         dnw_loc = dnw_inst.location_unit
