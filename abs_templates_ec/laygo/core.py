@@ -1366,7 +1366,6 @@ class LaygoBase(TemplateBase, metaclass=abc.ABCMeta):
             self.set_size_from_bound_box(top_layer, bound_box)
             if not draw_boundaries:
                 self.array_box = self.bound_box
-            self.add_cell_boundary(bound_box)
 
     def add_laygo_mos(self, row_idx, col_idx, seg, gate_loc='d',
                       stack=False, is_sub=False, flip=False, **kwargs):
