@@ -429,7 +429,7 @@ class LaygoTechFinfetBase(LaygoTech, metaclass=abc.ABCMeta):
                     po_types.append('PO_edge_dummy')
                 else:
                     po_types.append('PO_dummy')
-            elif cur_idx < od_spx_fg or cur_idx >= num_blk - od_spx_fg:
+            elif cur_idx < od_spx_fg - 1 or cur_idx >= num_blk - od_spx_fg + 1:
                 po_types.append('PO_dummy')
             elif od_intv_idx < len(od_x_list):
                 cur_od_intv = od_x_list[od_intv_idx]
