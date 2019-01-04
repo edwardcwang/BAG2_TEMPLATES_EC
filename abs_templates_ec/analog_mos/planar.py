@@ -979,7 +979,7 @@ class MOSTechPlanarGeneric(MOSTech):
         kwargs['end_ext_info'] = end_ext_info
         return self._get_end_blk_info(lch_unit, sub_type, threshold, fg, True, 1, **kwargs)
 
-    def get_outer_edge_info(self, guard_ring_nf, layout_info, is_end, adj_blk_info):
+    def get_outer_edge_info(self, guard_ring_nf, layout_info, is_end, adj_blk_info, **kwargs):
         # type: (int, Dict[str, Any], bool, Optional[Any]) -> Dict[str, Any]
         lch_unit = layout_info['lch_unit']
         sd_pitch = layout_info['sd_pitch']
