@@ -2546,23 +2546,9 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             if fg == 1:
                 raise ValueError('1 finger transistor connection not supported.')
 
-            # draw wires
-            _, s_warrs = self.draw_ds_connection(template, lch_unit, num_seg, wire_pitch, 0, od_y,
-                                                 md_y, s_x_list, s_x_list, ds_code == 1, sdir, 1,
-                                                 source_parity=source_parity)
-            _, d_warrs = self.draw_ds_connection(template, lch_unit, num_seg, wire_pitch, 0, od_y,
-                                                 md_y, d_x_list, d_x_list, ds_code == 2, 0, 2,
-                                                 source_parity=source_parity)
-            g_warrs = self.draw_g_connection(template, lch_unit, fg, sd_pitch, 0, od_y, md_y,
-                                             d_x_list, is_sub=False, is_diode=True)
+            self.draw_diode_connection_helper(template, lch_unit, num_seg, wire_pitch, od_y, md_y, s_x_list,
+                                              d_x_list, ds_code, sdir, source_parity, fg, sd_pitch)
 
-            g_warrs = WireArray.list_to_warr(g_warrs)
-            d_warrs = WireArray.list_to_warr(d_warrs)
-            s_warrs = WireArray.list_to_warr(s_warrs)
-            template.connect_wires([g_warrs, d_warrs])
-            template.add_pin('g', g_warrs, show=False)
-            template.add_pin('d', d_warrs, show=False)
-            template.add_pin('s', s_warrs, show=False)
         else:
             if not gate_pref_loc:
                 gate_pref_loc = 'd' if ds_code == 2 else 's'
@@ -2613,6 +2599,26 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             template.add_pin('s', WireArray.list_to_warr(s_warrs), show=False)
             template.add_pin('d', WireArray.list_to_warr(d_warrs), show=False)
             template.add_pin('g', WireArray.list_to_warr(g_warrs), show=False)
+
+    def draw_diode_connection_helper(self, template, lch_unit, num_seg, wire_pitch, od_y, md_y, s_x_list,
+                                     d_x_list, ds_code, sdir, source_parity, fg, sd_pitch):
+        # draw wires
+        _, s_warrs = self.draw_ds_connection(template, lch_unit, num_seg, wire_pitch, 0, od_y,
+                                             md_y, s_x_list, s_x_list, ds_code == 1, sdir, 1,
+                                             source_parity=source_parity)
+        _, d_warrs = self.draw_ds_connection(template, lch_unit, num_seg, wire_pitch, 0, od_y,
+                                             md_y, d_x_list, d_x_list, ds_code == 2, 0, 2,
+                                             source_parity=source_parity)
+        g_warrs = self.draw_g_connection(template, lch_unit, fg, sd_pitch, 0, od_y, md_y,
+                                         d_x_list, is_sub=False, is_diode=True)
+
+        g_warrs = WireArray.list_to_warr(g_warrs)
+        d_warrs = WireArray.list_to_warr(d_warrs)
+        s_warrs = WireArray.list_to_warr(s_warrs)
+        template.connect_wires([g_warrs, d_warrs])
+        template.add_pin('g', g_warrs, show=False)
+        template.add_pin('d', d_warrs, show=False)
+        template.add_pin('s', s_warrs, show=False)
 
     def draw_dum_connection(self, template, mos_info, edge_mode, gate_tracks, options):
         # type: (TemplateBase, Dict[str, Any], int, List[Union[float, int]], Dict[str, Any]) -> None
