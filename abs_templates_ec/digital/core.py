@@ -299,7 +299,6 @@ class DigitalBase(TemplateBase, metaclass=abc.ABCMeta):
             height = self._ytop[1]
             bound_box = BBox(0, 0, width, height, self.grid.resolution, unit_mode=True)
             self.set_size_from_bound_box(top_layer, bound_box)
-            self.add_cell_boundary(bound_box)
             if not self._laygo_info.draw_boundaries:
                 self.array_box = bound_box
 
