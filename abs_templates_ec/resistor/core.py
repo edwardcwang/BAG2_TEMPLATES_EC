@@ -514,8 +514,6 @@ class ResArrayBase(TemplateBase, metaclass=abc.ABCMeta):
             self.prim_top_layer = top_layer
             self.prim_bound_box = bnd_box
 
-        self.add_cell_boundary(self.bound_box)
-
         # draw device blockages
         self.grid.tech_info.draw_device_blockage(self)
 
@@ -813,8 +811,6 @@ class Termination(TemplateBase):
             self.reexport(top_inst.get_port(port_name), show=show_pins)
             self.size = top_layer, nx_arr, ny_arr + 2 * ny_shift
             self.array_box = bot_inst.array_box.merge(top_inst.array_box)
-            self.add_cell_boundary(self.bound_box)
-
             for port_name in res_inst.port_names_iter():
                 self.reexport(res_inst.get_port(port_name), show=show_pins)
 
@@ -1282,7 +1278,6 @@ class ResLadder(TemplateBase):
         # recompute array_box/size
         self.size = top_layer, nx_arr, ny_arr + 2 * ny_sub
         self.array_box = bot_inst.array_box.merge(top_inst.array_box)
-        self.add_cell_boundary(self.bound_box)
 
         # gather supply and re-export outputs
         sup_table = {'VDD': [], 'VSS': []}

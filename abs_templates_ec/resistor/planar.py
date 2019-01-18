@@ -495,7 +495,6 @@ class ResTechPlanarGeneric(ResTech):
             template.add_rect(lay, imp_box)
         template.array_box = arr_box
         template.prim_bound_box = arr_box
-        template.add_cell_boundary(arr_box)
 
         # draw RPDMY
         po_xl = xc - wres // 2
@@ -662,7 +661,6 @@ class ResTechPlanarGeneric(ResTech):
         # set bounding box
         template.prim_bound_box = bnd_box
         template.array_box = bnd_box
-        template.add_cell_boundary(bnd_box)
 
         # draw M1 exclusion layer
         m1_exc_layer = metal_exclude_table[1]
