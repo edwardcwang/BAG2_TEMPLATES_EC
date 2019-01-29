@@ -35,7 +35,7 @@ class MOSTechSOIGenericBC(MOSTech):
         MOSTech.__init__(self, config, tech_info, mos_entry_name=mos_entry_name)
 
     def get_edge_info(self, lch_unit, guard_ring_nf, is_end, **kwargs):
-        # type: (int, int, bool) -> Dict[str, Any]
+        # type: (int, int, bool, Any) -> Dict[str, Any]
 
         mos_constants = self.get_mos_tech_constants(lch_unit)
         return dict(
@@ -44,7 +44,7 @@ class MOSTechSOIGenericBC(MOSTech):
         )
 
     def get_mos_info(self, lch_unit, w, mos_type, threshold, fg, **kwargs):
-        # type: (int, int, str, str, int, **kwargs) -> Dict[str, Any]
+        # type: (int, int, str, str, int, Any) -> Dict[str, Any]
 
         mos_lay_table = self.config['mos_layer_table']
 
@@ -194,7 +194,7 @@ class MOSTechSOIGenericBC(MOSTech):
         )
 
     def get_valid_extension_widths(self, lch_unit, top_ext_info, bot_ext_info, **kwargs):
-        # type: (int, ExtInfo, ExtInfo) -> List[int]
+        # type: (int, ExtInfo, ExtInfo, Any) -> List[int]
 
         # get implant spacing info
         imp_sp_info = self.config['mos_analog']['imp_spaces']
@@ -227,7 +227,7 @@ class MOSTechSOIGenericBC(MOSTech):
         return [w_min]
 
     def get_ext_info(self, lch_unit, w, fg, top_ext_info, bot_ext_info, **kwargs):
-        # type: (int, int, int, ExtInfo, ExtInfo) -> Dict[str, Any]
+        # type: (int, int, int, ExtInfo, ExtInfo, Any) -> Dict[str, Any]
 
         # get implant spacing info
         imp_sp_info = self.config['mos_analog']['imp_spaces']
@@ -269,11 +269,11 @@ class MOSTechSOIGenericBC(MOSTech):
         )
 
     def get_sub_ring_ext_info(self, sub_type, height, fg, end_ext_info, **kwargs):
-        # type: (str, int, int, Any, **kwargs) -> Dict[str, Any]
+        # type: (str, int, int, Any, Any) -> Dict[str, Any]
         raise NotImplementedError('Not implemented yet')
 
     def get_substrate_info(self, lch_unit, w, sub_type, threshold, fg, blk_pitch=1, **kwargs):
-        # type: (int, int, str, str, int, int, **kwargs) -> Dict[str, Any]
+        # type: (int, int, str, str, int, int, Any) -> Dict[str, Any]
 
         # convert width to resolution units
         layout_unit = self.config['layout_unit']
@@ -320,7 +320,7 @@ class MOSTechSOIGenericBC(MOSTech):
         )
 
     def get_analog_end_info(self, lch_unit, sub_type, threshold, fg, is_end, blk_pitch, **kwargs):
-        # type: (int, str, str, int, bool, int, **kwargs) -> Dict[str, Any]
+        # type: (int, str, str, int, bool, int, Any) -> Dict[str, Any]
 
         # get transistor constants
         mos_constants = self.get_mos_tech_constants(lch_unit)
@@ -345,11 +345,11 @@ class MOSTechSOIGenericBC(MOSTech):
         )
 
     def get_sub_ring_end_info(self, sub_type, threshold, fg, end_ext_info, **kwargs):
-        # type: (str, str, int, Any, **kwargs) -> Dict[str, Any]
+        # type: (str, str, int, Any, Any) -> Dict[str, Any]
         raise NotImplementedError('Not implemented yet.')
 
-    def get_outer_edge_info(self, guard_ring_nf, layout_info, is_end, adj_blk_info):
-        # type: (int, Dict[str, Any], bool, Optional[Any]) -> Dict[str, Any]
+    def get_outer_edge_info(self, guard_ring_nf, layout_info, is_end, adj_blk_info, **kwargs):
+        # type: (int, Dict[str, Any], bool, Optional[Any], Any) -> Dict[str, Any]
 
         # outer edge is empty
         return dict(
@@ -362,12 +362,12 @@ class MOSTechSOIGenericBC(MOSTech):
             blk_type='edge',
         )
 
-    def get_gr_sub_info(self, guard_ring_nf, layout_info):
-        # type: (int, Dict[str, Any]) -> Dict[str, Any]
+    def get_gr_sub_info(self, guard_ring_nf, layout_info, **kwargs):
+        # type: (int, Dict[str, Any], Any) -> Dict[str, Any]
         raise ValueError('Guard ring is not supported in this technology.')
 
-    def get_gr_sep_info(self, layout_info, adj_blk_info):
-        # type: (Dict[str, Any], Any) -> Dict[str, Any]
+    def get_gr_sep_info(self, layout_info, adj_blk_info, **kwargs):
+        # type: (Dict[str, Any], Any, Any) -> Dict[str, Any]
         raise ValueError('Guard ring is not supported in this technology.')
 
     def draw_od(self, template, od_name, od_box, nx=1, ny=1, spx=0, spy=0, **kwargs):
