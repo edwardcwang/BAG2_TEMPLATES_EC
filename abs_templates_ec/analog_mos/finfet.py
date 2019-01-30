@@ -14,6 +14,7 @@ from bag.layout.routing.fill import fill_symmetric_min_density_info
 from bag.layout.routing.fill import fill_symmetric_interval
 from bag.layout.routing.fill import fill_symmetric_max_density
 from bag.layout.template import TemplateBase
+from enum import Enum
 
 from .core import MOSTech
 
@@ -35,6 +36,13 @@ class ExtInfo(namedtuple('ExtInfoBase', ['margins', 'od_h', 'imp_min_h', 'mtype'
         return self._replace(po_types=tuple(reversed(self.po_types)),
                              edgel_info=self.edger_info,
                              edger_info=self.edgel_info)
+
+
+class GrContinuous(Enum):
+    FALSE = 0
+    VERT = 1
+    HORZ = 2
+    BOTH = 3
 
 
 class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
@@ -729,6 +737,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         mos_constants = self.get_mos_tech_constants(lch_unit)
         blk_pitch = mos_constants['blk_pitch']
         od_spy_dum = mos_constants.get('od_spy_dum', mos_constants['od_spy'])
+        imp_od_diff_spy = mos_constants.get('imp_od_diff_spy', od_spy_dum // 2)
         od_nfin_min = mos_constants['od_fill_h'][0]
         imp_od_ency = mos_constants['imp_od_ency']
         has_cpo = self.get_has_cpo(mos_constants, **kwargs)
@@ -751,7 +760,15 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
         top_imp_min_h = top_ext_info.imp_min_h  # type: int
 
         # step 1: get minimum extension width from vertical spacing rule
-        min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // blk_pitch))
+        bot_sub_type = bot_ext_info.mtype[1]
+        top_sub_type = top_ext_info.mtype[1]
+        between_diff_taps = (bot_sub_type == 'ptap' and top_sub_type == 'ntap') or \
+                            (bot_sub_type == 'ntap' and top_sub_type == 'ptap')
+        if between_diff_taps:
+            min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // blk_pitch),
+                            -(-(imp_od_diff_spy - od_spy_dum // 2) // blk_pitch))
+        else:
+            min_ext_h = max(0, -(-(bot_imp_min_h + top_imp_min_h) // blk_pitch))
         for name, (tm, cur_spy) in top_ext_info.margins.items():
             if not ignore_vm or name not in self.ignore_vm_layers:
                 tot_margin = cur_spy - (tm + bot_ext_info.margins[name][0])
@@ -2272,13 +2289,16 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                         od_xl = po_xc - lch_unit // 2 + od_start * sd_pitch - po_od_extx
                         od_xr = po_xc + lch_unit // 2 + (od_stop - 1) * sd_pitch + po_od_extx
                         if is_planar_sub or is_gr_continuous:
+                            is_gr_vert_continuous = is_gr_continuous == GrContinuous.VERT.value or \
+                                                    is_gr_continuous == GrContinuous.BOTH.value
                             # modify OD geometry inside planar guard ring
                             if blk_type == 'gr_sub_sub':
-                                self.draw_od(template, od_name,
-                                             BBox(od_xl, od_yt, od_xr, arr_yt, res, unit_mode=True),
-                                             od_flav=row_info.od_type)
+                                if is_gr_vert_continuous:
+                                    self.draw_od(template, od_name,
+                                                 BBox(od_xl, od_yt, od_xr, arr_yt, res, unit_mode=True),
+                                                 od_flav=row_info.od_type)
                                 od_xr = po_xc + lch_unit // 2 + (fg - 1) * sd_pitch + po_od_extx
-                            elif blk_type == 'gr_sub':
+                            elif blk_type == 'gr_sub' and is_gr_vert_continuous:
                                 od_yb = 0
                                 od_yt = arr_yt
                         od_box = BBox(od_xl, od_yb, od_xr, od_yt, res, unit_mode=True)
