@@ -282,6 +282,7 @@ class AnalogSubstrateConn(TemplateBase):
         return self.params['layout_name']
 
     def draw_layout(self):
+        layout_name = self.params['layout_name']
         layout_info = self.params['layout_info']
         dummy_only = self.params['dummy_only']
         port_tracks = self.params['port_tracks']
@@ -299,6 +300,7 @@ class AnalogSubstrateConn(TemplateBase):
         else:
             tech_cls = self.grid.tech_info.tech_params['layout'][tech_cls_name]
 
+        options['is_ext'] = 'ext' in layout_name
         tmp = tech_cls.draw_substrate_connection(self, layout_info, port_tracks, dum_tracks,
                                                  exc_tracks, dummy_only, is_laygo,
                                                  is_guardring, options)

@@ -14,7 +14,7 @@ from bag.layout.routing.fill import fill_symmetric_min_density_info
 from bag.layout.routing.fill import fill_symmetric_interval
 from bag.layout.routing.fill import fill_symmetric_max_density
 from bag.layout.template import TemplateBase
-from enum import Enum
+from enum import IntFlag
 
 from .core import MOSTech
 
@@ -38,7 +38,7 @@ class ExtInfo(namedtuple('ExtInfoBase', ['margins', 'od_h', 'imp_min_h', 'mtype'
                              edger_info=self.edgel_info)
 
 
-class GrContinuous(Enum):
+class GrContinuous(IntFlag):
     FALSE = 0
     VERT = 1
     HORZ = 2
@@ -363,6 +363,9 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
 
     def is_gr_continuous(self, lch_unit, **kwargs):
         return False
+
+    def gr_cont_mode(self):
+        return GrContinuous.BOTH
 
     def get_od_w(self, lch_unit, fg):
         # type: (int, int) -> int
@@ -1358,8 +1361,8 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                 thres_ysep = thres_split_y[sep_idx]
 
         # add implant layers
-        imp_params = [(bot_mtype, bot_thres, 0, imp_ysep, 0, thres_ysep),
-                      (top_mtype, top_thres, imp_ysep, yt, thres_ysep, yt)]
+        imp_params = [(bot_mtype, bot_thres, 0, min(imp_ysep, yt), 0, thres_ysep),
+                      (top_mtype, top_thres, max(imp_ysep, 0), yt, thres_ysep, yt)]
 
         for mtype, thres, imp_yb, imp_yt, thres_yb, thres_yt in imp_params:
             mtype = self.get_implant_type(lch_unit, mtype, is_planar_sub=is_planar_sub, is_sub_ring=is_sub_ring)
@@ -1914,6 +1917,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
             adj_row_list=new_adj_row_list,
             left_blk_info=None,
             right_blk_info=None,
+            between_gr=between_gr,
         )
 
         if is_planar_sub:
@@ -2289,8 +2293,7 @@ class MOSTechFinfetBase(MOSTech, metaclass=abc.ABCMeta):
                         od_xl = po_xc - lch_unit // 2 + od_start * sd_pitch - po_od_extx
                         od_xr = po_xc + lch_unit // 2 + (od_stop - 1) * sd_pitch + po_od_extx
                         if is_planar_sub or is_gr_continuous:
-                            is_gr_vert_continuous = is_gr_continuous == GrContinuous.VERT.value or \
-                                                    is_gr_continuous == GrContinuous.BOTH.value
+                            is_gr_vert_continuous = self.gr_cont_mode() == GrContinuous.VERT | GrContinuous.BOTH
                             # modify OD geometry inside planar guard ring
                             if blk_type == 'gr_sub_sub':
                                 if is_gr_vert_continuous:
