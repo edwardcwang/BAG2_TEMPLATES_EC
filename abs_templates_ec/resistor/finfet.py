@@ -688,7 +688,6 @@ class ResTechFinfetBase(ResTech, metaclass=abc.ABCMeta):
                 template.add_rect(lay, arr_box)
         template.array_box = arr_box
         template.prim_bound_box = arr_box
-        template.add_cell_boundary(arr_box)
 
         # draw RPDMY
         rpdmy_yb = yc - l // 2
@@ -856,7 +855,6 @@ class ResTechFinfetBase(ResTech, metaclass=abc.ABCMeta):
         # set bounding box
         template.prim_bound_box = bnd_box
         template.array_box = bnd_box
-        template.add_cell_boundary(bnd_box)
 
         # draw metal fill
         for (layer, exc_layer, _, _, _, _, _, _, _, _), fill_x, fill_y in zip(core_fill_info,
